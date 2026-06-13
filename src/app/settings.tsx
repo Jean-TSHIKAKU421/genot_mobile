@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Linking, TextInput, Alert, Modal } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router, useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { Alert, Image, Linking, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 const API_URL = 'https://jtt.alwaysdata.net/api';
 
@@ -30,10 +30,22 @@ export default function SettingsScreen() {
     const loadData = async () => {
         const u = await AsyncStorage.getItem('currentUser');
         if (!u) { router.replace('/'); return; }
-        const userData = JSON.parse(u);
-        setUser(userData);
+        const localUser = JSON.parse(u);
+        
+        // Recharger depuis le serveur
+        try {
+            const r = await fetch(`${API_URL}/user/${localUser.matricule}`);
+            const d = await r.json();
+            if (d.success) {
+                setUser(d.user);
+                await AsyncStorage.setItem('currentUser', JSON.stringify(d.user));
+            }
+        } catch (e) {
+            setUser(localUser);
+        }
+        
         checkOnline();
-        loadStats(userData.matricule);
+        loadStats(localUser.matricule);
     };
 
     const checkOnline = async () => { try { const r = await fetch(`${API_URL}/ping`); setOnline((await r.json()).success); } catch (e) { setOnline(false); } };
