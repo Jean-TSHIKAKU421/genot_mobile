@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, Alert, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, Alert, Image, TextInput } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect } from 'expo-router';
 
@@ -10,6 +10,9 @@ export default function HomeScreen() {
     const [courses, setCourses] = useState([]);
     const [ready, setReady] = useState(false);
     const [theme, setTheme] = useState('dark');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filteredCourses, setFilteredCourses] = useState([]);
+    const [isListening, setIsListening] = useState(false);
 
     useEffect(() => { AsyncStorage.getItem('theme').then(t => { if (t) setTheme(t); }); }, []);
 
@@ -58,9 +61,36 @@ export default function HomeScreen() {
         return words.length > 1 ? words[words.length - 1] : words[0];
     };
 
+    const handleSearch = (term) => {
+        setSearchTerm(term);
+        if (!term.trim()) { setFilteredCourses([]); return; }
+        const t = term.toLowerCase().trim();
+        const results = courses.filter(c => {
+            const title = (c.title || '').toLowerCase();
+            const prof = (c.professor || '').toLowerCase();
+            const desc = (c.description || '').toLowerCase();
+            return title.includes(t) || prof.includes(t) || desc.includes(t);
+        });
+        setFilteredCourses(results);
+    };
+
+    const toggleVoiceSearch = async () => {
+        if (isListening) { setIsListening(false); return; }
+        try {
+            const { default: SpeechRecognition } = await import('expo-speech-recognition');
+            setIsListening(true);
+            const result = await SpeechRecognition.startListening({ language: 'fr-FR', continuous: false });
+            if (result && result.transcript) { setSearchTerm(result.transcript); handleSearch(result.transcript); }
+        } catch (e) {
+            Alert.alert('Info', 'Reconnaissance vocale nécessite expo-speech-recognition.');
+        } finally { setIsListening(false); }
+    };
+
     if (!ready) {
         return <View style={[styles.container, { backgroundColor: colors.bg }]}><Text style={{ color: colors.text, textAlign: 'center', marginTop: 100 }}>Chargement...</Text></View>;
     }
+
+    const displayCourses = filteredCourses.length > 0 || searchTerm.length > 0 ? filteredCourses : courses;
 
     const renderCourse = ({ item }) => (
         <TouchableOpacity style={[styles.courseCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => router.push(`/course?id=${item.id}`)}>
@@ -76,7 +106,10 @@ export default function HomeScreen() {
                 <Text style={styles.courseDate}>📅 {new Date(item.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</Text>
                 <View style={styles.courseActions}>
                     <TouchableOpacity style={styles.btnEnter} onPress={() => router.push(`/course?id=${item.id}`)}>
-                        <Text style={styles.btnEnterText}>📖 Voir le cours</Text>
+                        <Text style={styles.btnEnterText}>📖 Voir</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.btnEdit} onPress={() => router.push(`/edit-course?id=${item.id}`)}>
+                        <Text style={styles.btnEditText}>✏️</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.btnDelete} onPress={() => deleteCourse(item.id)}>
                         <Text style={styles.btnDeleteText}>🗑️</Text>
@@ -128,16 +161,33 @@ export default function HomeScreen() {
 
             <Text style={[styles.pageTitle, { color: colors.text }]}>📚 Mes Cours</Text>
 
+            <View style={[styles.searchBar, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                <Text style={styles.searchIcon}>🔍</Text>
+                <TextInput style={[styles.searchInput, { color: colors.text }]} placeholder="Rechercher un cours..." placeholderTextColor={colors.textSec} value={searchTerm} onChangeText={handleSearch} />
+                {searchTerm.length > 0 && (
+                    <TouchableOpacity onPress={() => { setSearchTerm(''); setFilteredCourses([]); }}>
+                        <Text style={{ color: colors.textSec, fontSize: 16, marginRight: 8 }}>✕</Text>
+                    </TouchableOpacity>
+                )}
+                <TouchableOpacity style={[styles.micBtn, isListening && { backgroundColor: '#ef4444' }]} onPress={toggleVoiceSearch}>
+                    <Text style={{ fontSize: 18 }}>{isListening ? '🎤' : '🎙️'}</Text>
+                </TouchableOpacity>
+            </View>
+
             <FlatList
-                data={courses}
+                data={displayCourses}
                 renderItem={renderCourse}
                 keyExtractor={item => item.id.toString()}
                 contentContainerStyle={styles.list}
                 ListEmptyComponent={
                     <View style={[styles.emptyState, { backgroundColor: colors.card, borderColor: colors.border }]}>
                         <Text style={styles.emptyIcon}>📖</Text>
-                        <Text style={[styles.emptyTitle, { color: colors.text }]}>Aucun cours pour le moment</Text>
-                        <Text style={[styles.emptyText, { color: colors.textSec }]}>Commencez par ajouter votre premier cours !</Text>
+                        <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                            {searchTerm ? `Aucun cours trouvé pour "${searchTerm}"` : 'Aucun cours pour le moment'}
+                        </Text>
+                        <Text style={[styles.emptyText, { color: colors.textSec }]}>
+                            {searchTerm ? 'Essayez avec d\'autres mots-clés' : 'Commencez par ajouter votre premier cours !'}
+                        </Text>
                     </View>
                 }
             />
@@ -161,7 +211,11 @@ const styles = StyleSheet.create({
     iconBtn: { width: 42, height: 42, borderRadius: 21, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
     iconBtnText: { fontSize: 20 },
     pageTitle: { fontSize: 20, fontWeight: '700', padding: 16, paddingBottom: 4 },
-    list: { padding: 12, paddingTop: 0 },
+    searchBar: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 12, marginTop: 8, marginBottom: 4, paddingHorizontal: 14, borderRadius: 50, borderWidth: 1, height: 46 },
+    searchIcon: { fontSize: 16, marginRight: 8 },
+    searchInput: { flex: 1, fontSize: 14, paddingVertical: 0 },
+    micBtn: { marginLeft: 4, width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center' },
+    list: { padding: 12, paddingTop: 8 },
     courseCard: { borderRadius: 20, marginBottom: 14, overflow: 'hidden', borderWidth: 1 },
     courseImage: { width: '100%', height: 160, resizeMode: 'cover' },
     courseImagePlaceholder: { width: '100%', height: 160, backgroundColor: '#6366f1', justifyContent: 'center', alignItems: 'center' },
@@ -171,9 +225,11 @@ const styles = StyleSheet.create({
     courseProfessor: { fontSize: 13, marginBottom: 4 },
     courseMeta: { fontSize: 12, marginBottom: 2 },
     courseDate: { fontSize: 11, color: '#64748b', marginBottom: 14 },
-    courseActions: { flexDirection: 'row', gap: 8 },
+    courseActions: { flexDirection: 'row', gap: 6 },
     btnEnter: { flex: 1, backgroundColor: '#6366f1', borderRadius: 50, padding: 10, alignItems: 'center' },
     btnEnterText: { color: '#fff', fontWeight: '600', fontSize: 13 },
+    btnEdit: { backgroundColor: 'rgba(245,158,11,0.15)', borderRadius: 50, padding: 10, paddingHorizontal: 14, borderWidth: 1, borderColor: 'rgba(245,158,11,0.3)' },
+    btnEditText: { fontSize: 16 },
     btnDelete: { backgroundColor: 'rgba(239,68,68,0.1)', borderRadius: 50, padding: 10, paddingHorizontal: 14, borderWidth: 1, borderColor: 'rgba(239,68,68,0.2)' },
     btnDeleteText: { fontSize: 16 },
     emptyState: { alignItems: 'center', padding: 50, borderRadius: 20, borderWidth: 1, marginHorizontal: 12 },

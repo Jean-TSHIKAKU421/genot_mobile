@@ -187,7 +187,7 @@ export default function SettingsScreen() {
                     <View style={styles.devCenter}>
                         <View style={styles.devAvatar}><Text style={styles.devAvatarText}>JT</Text></View>
                         <Text style={[styles.devName, { color: colors.text }]}>Jean TSHIKAKU</Text>
-                        <Text style={[styles.devRole, { color: colors.primary }]}>Développeur Full Stack</Text>
+                        <Text style={[styles.devRole, { color: colors.primary }]}>Développeur Junior & Etudiant à UDBL</Text>
                     </View>
                     <TouchableOpacity style={[styles.contactBtn, { backgroundColor: colors.inputBg }]} onPress={() => Linking.openURL('https://wa.me/243832976093')}>
                         <Text style={styles.contactIcon}>💬</Text><View style={{ flex: 1 }}><Text style={[styles.contactLabel, { color: colors.textSec }]}>WhatsApp</Text><Text style={[styles.contactValue, { color: colors.text }]}>+243 83 29 760 93</Text></View>
