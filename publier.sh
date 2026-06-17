@@ -10,3 +10,8 @@ clear
 echo "Publication de la version x terminée avec succès !"
 sleep 2
 clear
+
+echo "Démarrage de l'application sur Android..."
+sleep 1
+clear
+npx expo start --android
