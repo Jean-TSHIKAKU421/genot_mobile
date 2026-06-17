@@ -1,8 +1,9 @@
+import { useState, useCallback } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Alert, Modal, Linking } from 'react-native';
+import { Image } from 'expo-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as ImagePicker from 'expo-image-picker';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import { Alert, Image, Linking, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 
 const API_URL = 'https://jtt.alwaysdata.net/api';
 
@@ -30,22 +31,10 @@ export default function SettingsScreen() {
     const loadData = async () => {
         const u = await AsyncStorage.getItem('currentUser');
         if (!u) { router.replace('/'); return; }
-        const localUser = JSON.parse(u);
-        
-        // Recharger depuis le serveur
-        try {
-            const r = await fetch(`${API_URL}/user/${localUser.matricule}`);
-            const d = await r.json();
-            if (d.success) {
-                setUser(d.user);
-                await AsyncStorage.setItem('currentUser', JSON.stringify(d.user));
-            }
-        } catch (e) {
-            setUser(localUser);
-        }
-        
+        const userData = JSON.parse(u);
+        setUser(userData);
         checkOnline();
-        loadStats(localUser.matricule);
+        loadStats(userData.matricule);
     };
 
     const checkOnline = async () => { try { const r = await fetch(`${API_URL}/ping`); setOnline((await r.json()).success); } catch (e) { setOnline(false); } };
@@ -74,11 +63,7 @@ export default function SettingsScreen() {
 
     const handleLogout = async () => { await AsyncStorage.removeItem('currentUser'); router.replace('/'); };
 
-    const openEdit = (type, currentValue) => {
-        setEditType(type);
-        setEditValue(currentValue || '');
-        setEditModal(true);
-    };
+    const openEdit = (type, currentValue) => { setEditType(type); setEditValue(currentValue || ''); setEditModal(true); };
 
     const saveEdit = async () => {
         try {
@@ -87,10 +72,8 @@ export default function SettingsScreen() {
                 body: JSON.stringify({ [editType]: editValue })
             });
             const d = await r.json();
-            if (d.success) {
-                setUser(d.user);
-                await AsyncStorage.setItem('currentUser', JSON.stringify(d.user));
-            } else { Alert.alert('Erreur', d.message); }
+            if (d.success) { setUser(d.user); await AsyncStorage.setItem('currentUser', JSON.stringify(d.user)); }
+            else { Alert.alert('Erreur', d.message); }
         } catch (e) { Alert.alert('Erreur', 'Impossible de modifier.'); }
         setEditModal(false);
     };
@@ -99,7 +82,7 @@ export default function SettingsScreen() {
         const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.7 });
         if (!result.canceled) {
             const formData = new FormData();
-            formData.append('photo', { uri: result.assets[0].uri, type: 'image/jpeg', name: 'profile.jpg' });
+            formData.append('photo', { uri: result.assets[0].uri, type: 'image/jpeg', name: 'profile.jpg' } as any);
             try {
                 const r = await fetch(`${API_URL}/upload-profile-photo/${user.matricule}`, { method: 'POST', body: formData });
                 const d = await r.json();
@@ -123,17 +106,18 @@ export default function SettingsScreen() {
             </View>
 
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                {/* Profil */}
                 <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
                     <View style={styles.profileCenter}>
                         <TouchableOpacity onPress={pickImage}>
                             {user.photo ? (
-                                <Image source={{ uri: API_URL.replace('/api', '') + user.photo }} style={styles.avatarLarge} />
+                                <Image source={{ uri: API_URL.replace('/api', '') + user.photo }} style={styles.avatarLarge} contentFit="cover" transition={200} cachePolicy="memory-disk" />
                             ) : (
                                 <View style={styles.avatarLargePlaceholder}><Text style={{ fontSize: 50 }}>👤</Text></View>
                             )}
                             <Text style={styles.changePhoto}>📷 Modifier</Text>
                         </TouchableOpacity>
+                        <Text style={[styles.profileName, { color: colors.text }]}>{user.nom || '---'}</Text>
+                        <Text style={[styles.profileMatricule, { color: colors.textSec }]}>{user.matricule}</Text>
                     </View>
 
                     <View style={styles.infoList}>
@@ -169,7 +153,6 @@ export default function SettingsScreen() {
                     </View>
                 </View>
 
-                {/* À propos */}
                 <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
                     <Text style={[styles.cardTitle, { color: colors.primary }]}>ℹ️ À propos</Text>
                     <Text style={[styles.aboutText, { color: colors.textSec }]}>Plateforme de gestion des notes de cours pour étudiants. Centralisez vos cours, notes, PDFs et liens.</Text>
@@ -181,13 +164,12 @@ export default function SettingsScreen() {
                     </View>
                 </View>
 
-                {/* Développeur */}
                 <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
                     <Text style={[styles.cardTitle, { color: colors.primary }]}>👨‍💻 Développeur</Text>
                     <View style={styles.devCenter}>
                         <View style={styles.devAvatar}><Text style={styles.devAvatarText}>JT</Text></View>
                         <Text style={[styles.devName, { color: colors.text }]}>Jean TSHIKAKU</Text>
-                        <Text style={[styles.devRole, { color: colors.primary }]}>Développeur Junior & Etudiant à UDBL</Text>
+                        <Text style={[styles.devRole, { color: colors.primary }]}>Développeur Junior & Etudiant</Text>
                     </View>
                     <TouchableOpacity style={[styles.contactBtn, { backgroundColor: colors.inputBg }]} onPress={() => Linking.openURL('https://wa.me/243832976093')}>
                         <Text style={styles.contactIcon}>💬</Text><View style={{ flex: 1 }}><Text style={[styles.contactLabel, { color: colors.textSec }]}>WhatsApp</Text><Text style={[styles.contactValue, { color: colors.text }]}>+243 83 29 760 93</Text></View>
@@ -204,7 +186,6 @@ export default function SettingsScreen() {
                 <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}><Text style={styles.logoutBtnText}>🚪 Se déconnecter</Text></TouchableOpacity>
             </ScrollView>
 
-            {/* Modal édition */}
             <Modal visible={editModal} transparent animationType="fade">
                 <View style={styles.modalOverlay}>
                     <View style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>

@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, Alert, Image, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, Alert, TextInput } from 'react-native';
+import { Image } from 'expo-image';
+import { FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect } from 'expo-router';
 
 const API_URL = 'https://jtt.alwaysdata.net/api';
+const PLACEHOLDER = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
 export default function HomeScreen() {
     const [user, setUser] = useState(null);
@@ -31,11 +34,12 @@ export default function HomeScreen() {
         border: isDark ? 'rgba(99,102,241,0.2)' : '#e2e8f0',
         inputBg: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc',
         primary: '#6366f1',
+        danger: '#ef4444',
+        warning: '#f59e0b',
+        success: '#10b981',
     };
 
-    useFocusEffect(
-        useCallback(() => { loadData(); }, [])
-    );
+    useFocusEffect(useCallback(() => { loadData(); }, []));
 
     const loadData = async () => {
         const u = await AsyncStorage.getItem('currentUser');
@@ -93,26 +97,32 @@ export default function HomeScreen() {
     const displayCourses = filteredCourses.length > 0 || searchTerm.length > 0 ? filteredCourses : courses;
 
     const renderCourse = ({ item }) => (
-        <TouchableOpacity style={[styles.courseCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => router.push(`/course?id=${item.id}`)}>
+        <TouchableOpacity style={[styles.courseCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => router.push({ pathname: '/course', params: { id: item.id } })}>
             {item.image_url ? (
-                <Image source={{ uri: API_URL.replace('/api', '') + item.image_url }} style={styles.courseImage} />
+                <Image source={{ uri: API_URL.replace('/api', '') + item.image_url }} style={styles.courseImage} contentFit="cover" transition={300} cachePolicy="memory-disk" placeholder={{ uri: PLACEHOLDER }} />
             ) : (
-                <View style={styles.courseImagePlaceholder}><Text style={styles.courseImagePlaceholderText}>📚</Text></View>
+                <View style={styles.courseImagePlaceholder}>
+                    <FontAwesome5 name="book" size={45} color="#fff" />
+                </View>
             )}
             <View style={styles.courseBody}>
                 <Text style={[styles.courseTitle, { color: colors.text }]} numberOfLines={1}>{item.title}</Text>
-                <Text style={[styles.courseProfessor, { color: colors.textSec }]}>👨‍🏫 {item.professor || '---------'}</Text>
+                <View style={styles.courseRow}>
+                    <FontAwesome5 name="user-tie" size={12} color={colors.primary} />
+                    <Text style={[styles.courseProfessor, { color: colors.textSec }]}> {item.professor || '---------'}</Text>
+                </View>
                 <Text style={[styles.courseMeta, { color: colors.textSec }]}>📝 {item.noteCount || 0} note(s)</Text>
                 <Text style={styles.courseDate}>📅 {new Date(item.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</Text>
                 <View style={styles.courseActions}>
-                    <TouchableOpacity style={styles.btnEnter} onPress={() => router.push(`/course?id=${item.id}`)}>
-                        <Text style={styles.btnEnterText}>📖 Voir</Text>
+                    <TouchableOpacity style={styles.btnEnter} onPress={() => router.push({ pathname: '/course', params: { id: item.id } })}>
+                        <FontAwesome5 name="eye" size={14} color="#fff" />
+                        <Text style={styles.btnEnterText}> Voir</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.btnEdit} onPress={() => router.push(`/edit-course?id=${item.id}`)}>
-                        <Text style={styles.btnEditText}>✏️</Text>
+                    <TouchableOpacity style={styles.btnEdit} onPress={() => router.push({ pathname: '/edit-course', params: { id: item.id } })}>
+                        <FontAwesome5 name="edit" size={16} color={colors.warning} />
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.btnDelete} onPress={() => deleteCourse(item.id)}>
-                        <Text style={styles.btnDeleteText}>🗑️</Text>
+                        <FontAwesome5 name="trash-alt" size={16} color={colors.danger} />
                     </TouchableOpacity>
                 </View>
             </View>
@@ -133,28 +143,30 @@ export default function HomeScreen() {
         <View style={[styles.container, { backgroundColor: colors.bg }]}>
             <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
                 <View style={styles.headerTop}>
-                    <Text style={{ fontSize: 50 }}>📚</Text>
+                    <FontAwesome5 name="book" size={40} color={colors.primary} />
                     <Text style={[styles.headerUserName, { color: colors.text }]}>{user ? getPrenom(user.nom) : ''}</Text>
                     <TouchableOpacity onPress={() => router.push('/settings')}>
                         {user?.photo ? (
-                            <Image source={{ uri: API_URL.replace('/api', '') + user.photo }} style={styles.profilePhoto} />
+                            <Image source={{ uri: API_URL.replace('/api', '') + user.photo }} style={styles.profilePhoto} contentFit="cover" transition={200} cachePolicy="memory-disk" />
                         ) : (
-                            <View style={styles.profilePlaceholder}><Text style={styles.profilePlaceholderText}>{user ? getPrenom(user.nom).charAt(0).toUpperCase() : '?'}</Text></View>
+                            <View style={styles.profilePlaceholder}>
+                                <FontAwesome5 name="user" size={22} color="#fff" />
+                            </View>
                         )}
                     </TouchableOpacity>
                 </View>
                 <View style={[styles.headerActions, { borderTopColor: colors.border }]}>
                     <TouchableOpacity style={[styles.iconBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]} onPress={toggleTheme}>
-                        <Text style={styles.iconBtnText}>{isDark ? '☀️' : '🌙'}</Text>
+                        <FontAwesome5 name={isDark ? 'sun' : 'moon'} size={18} color={colors.text} />
                     </TouchableOpacity>
                     <TouchableOpacity style={[styles.iconBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]} onPress={() => router.push('/settings')}>
-                        <Text style={styles.iconBtnText}>⚙️</Text>
+                        <FontAwesome5 name="cog" size={18} color={colors.text} />
                     </TouchableOpacity>
                     <TouchableOpacity style={[styles.iconBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]} onPress={() => router.push('/trash')}>
-                        <Text style={styles.iconBtnText}>🗑️</Text>
+                        <FontAwesome5 name="trash-alt" size={18} color={colors.text} />
                     </TouchableOpacity>
                     <TouchableOpacity style={[styles.iconBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]} onPress={handleLogout}>
-                        <Text style={styles.iconBtnText}>🚪</Text>
+                        <FontAwesome5 name="sign-out-alt" size={18} color={colors.text} />
                     </TouchableOpacity>
                 </View>
             </View>
@@ -162,38 +174,31 @@ export default function HomeScreen() {
             <Text style={[styles.pageTitle, { color: colors.text }]}>📚 Mes Cours</Text>
 
             <View style={[styles.searchBar, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
-                <Text style={styles.searchIcon}>🔍</Text>
+                <FontAwesome5 name="search" size={16} color={colors.textSec} style={{ marginRight: 8 }} />
                 <TextInput style={[styles.searchInput, { color: colors.text }]} placeholder="Rechercher un cours..." placeholderTextColor={colors.textSec} value={searchTerm} onChangeText={handleSearch} />
                 {searchTerm.length > 0 && (
                     <TouchableOpacity onPress={() => { setSearchTerm(''); setFilteredCourses([]); }}>
-                        <Text style={{ color: colors.textSec, fontSize: 16, marginRight: 8 }}>✕</Text>
+                        <FontAwesome5 name="times" size={16} color={colors.textSec} style={{ marginRight: 8 }} />
                     </TouchableOpacity>
                 )}
                 <TouchableOpacity style={[styles.micBtn, isListening && { backgroundColor: '#ef4444' }]} onPress={toggleVoiceSearch}>
-                    <Text style={{ fontSize: 18 }}>{isListening ? '🎤' : '🎙️'}</Text>
+                    <FontAwesome5 name="microphone" size={16} color={isListening ? '#fff' : colors.textSec} />
                 </TouchableOpacity>
             </View>
 
-            <FlatList
-                data={displayCourses}
-                renderItem={renderCourse}
-                keyExtractor={item => item.id.toString()}
-                contentContainerStyle={styles.list}
+            <FlatList data={displayCourses} renderItem={renderCourse} keyExtractor={item => item.id.toString()} contentContainerStyle={styles.list}
                 ListEmptyComponent={
                     <View style={[styles.emptyState, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                        <Text style={styles.emptyIcon}>📖</Text>
-                        <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                            {searchTerm ? `Aucun cours trouvé pour "${searchTerm}"` : 'Aucun cours pour le moment'}
-                        </Text>
-                        <Text style={[styles.emptyText, { color: colors.textSec }]}>
-                            {searchTerm ? 'Essayez avec d\'autres mots-clés' : 'Commencez par ajouter votre premier cours !'}
-                        </Text>
+                        <FontAwesome5 name="book-open" size={50} color={colors.textSec} style={{ marginBottom: 12 }} />
+                        <Text style={[styles.emptyTitle, { color: colors.text }]}>{searchTerm ? `Aucun cours pour "${searchTerm}"` : 'Aucun cours'}</Text>
+                        <Text style={[styles.emptyText, { color: colors.textSec }]}>{searchTerm ? 'Essayez d\'autres mots-clés' : 'Ajoutez votre premier cours !'}</Text>
                     </View>
                 }
             />
 
             <TouchableOpacity style={styles.addBtn} onPress={() => router.push('/add-course')}>
-                <Text style={styles.addBtnText}>➕ Ajouter un cours</Text>
+                <FontAwesome5 name="plus" size={16} color="#fff" />
+                <Text style={styles.addBtnText}> Ajouter un cours</Text>
             </TouchableOpacity>
         </View>
     );
@@ -206,36 +211,30 @@ const styles = StyleSheet.create({
     headerUserName: { fontSize: 18, fontWeight: '700', flex: 1, textAlign: 'center' },
     profilePhoto: { width: 55, height: 55, borderRadius: 27, borderWidth: 2, borderColor: '#6366f1' },
     profilePlaceholder: { width: 55, height: 55, borderRadius: 27, backgroundColor: '#6366f1', justifyContent: 'center', alignItems: 'center' },
-    profilePlaceholderText: { color: '#fff', fontSize: 22, fontWeight: '700' },
     headerActions: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 14, paddingTop: 10, borderTopWidth: 1 },
     iconBtn: { width: 42, height: 42, borderRadius: 21, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
-    iconBtnText: { fontSize: 20 },
     pageTitle: { fontSize: 20, fontWeight: '700', padding: 16, paddingBottom: 4 },
     searchBar: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 12, marginTop: 8, marginBottom: 4, paddingHorizontal: 14, borderRadius: 50, borderWidth: 1, height: 46 },
-    searchIcon: { fontSize: 16, marginRight: 8 },
     searchInput: { flex: 1, fontSize: 14, paddingVertical: 0 },
     micBtn: { marginLeft: 4, width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center' },
     list: { padding: 12, paddingTop: 8 },
     courseCard: { borderRadius: 20, marginBottom: 14, overflow: 'hidden', borderWidth: 1 },
-    courseImage: { width: '100%', height: 160, resizeMode: 'cover' },
+    courseImage: { width: '100%', height: 160 },
     courseImagePlaceholder: { width: '100%', height: 160, backgroundColor: '#6366f1', justifyContent: 'center', alignItems: 'center' },
-    courseImagePlaceholderText: { fontSize: 45 },
     courseBody: { padding: 16 },
     courseTitle: { fontSize: 18, fontWeight: '700', textAlign: 'center', marginBottom: 8 },
-    courseProfessor: { fontSize: 13, marginBottom: 4 },
+    courseRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+    courseProfessor: { fontSize: 13 },
     courseMeta: { fontSize: 12, marginBottom: 2 },
     courseDate: { fontSize: 11, color: '#64748b', marginBottom: 14 },
     courseActions: { flexDirection: 'row', gap: 6 },
-    btnEnter: { flex: 1, backgroundColor: '#6366f1', borderRadius: 50, padding: 10, alignItems: 'center' },
+    btnEnter: { flex: 1, backgroundColor: '#6366f1', borderRadius: 50, padding: 10, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' },
     btnEnterText: { color: '#fff', fontWeight: '600', fontSize: 13 },
     btnEdit: { backgroundColor: 'rgba(245,158,11,0.15)', borderRadius: 50, padding: 10, paddingHorizontal: 14, borderWidth: 1, borderColor: 'rgba(245,158,11,0.3)' },
-    btnEditText: { fontSize: 16 },
     btnDelete: { backgroundColor: 'rgba(239,68,68,0.1)', borderRadius: 50, padding: 10, paddingHorizontal: 14, borderWidth: 1, borderColor: 'rgba(239,68,68,0.2)' },
-    btnDeleteText: { fontSize: 16 },
     emptyState: { alignItems: 'center', padding: 50, borderRadius: 20, borderWidth: 1, marginHorizontal: 12 },
-    emptyIcon: { fontSize: 50, marginBottom: 12 },
     emptyTitle: { fontSize: 18, fontWeight: '700', marginBottom: 6 },
     emptyText: { fontSize: 13 },
-    addBtn: { backgroundColor: '#6366f1', margin: 14, padding: 14, borderRadius: 50, alignItems: 'center' },
+    addBtn: { backgroundColor: '#6366f1', margin: 14, padding: 14, borderRadius: 50, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' },
     addBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });

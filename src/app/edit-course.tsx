@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, TextInput, Alert, Image, ScrollView } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_URL = 'https://jtt.alwaysdata.net/api';
 
@@ -47,19 +48,43 @@ export default function EditCourseScreen() {
 
     const handleSave = async () => {
         if (!title.trim()) { Alert.alert('Erreur', 'Le titre est requis.'); return; }
-        const u = await AsyncStorage.getItem('currentUser');
-        const user = JSON.parse(u || '{}');
-        const fd = new FormData();
-        fd.append('title', title);
-        fd.append('professor', professor);
-        fd.append('description', description);
-        if (newImage) fd.append('image', { uri: newImage.uri, type: 'image/jpeg', name: 'course.jpg' } as any);
         
         try {
-            const r = await fetch(`${API_URL}/courses/${id}`, { method: 'PUT', body: fd });
-            const d = await r.json();
-            if (d.success) { router.back(); } else { Alert.alert('Erreur', d.message); }
-        } catch (e) { Alert.alert('Erreur', 'Impossible de modifier.'); }
+            // Si pas de nouvelle image, envoyer en JSON
+            if (!newImage) {
+                const r = await fetch(`${API_URL}/courses/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, professor, description })
+                });
+                const d = await r.json();
+                if (d.success) { router.back(); } else { Alert.alert('Erreur', d.message); }
+                return;
+            }
+            
+            // Avec image : utiliser XMLHttpRequest pour le FormData
+            const xhr = new XMLHttpRequest();
+            xhr.open('PUT', `${API_URL}/courses/${id}`);
+            
+            const fd = new FormData();
+            fd.append('title', title);
+            fd.append('professor', professor);
+            fd.append('description', description);
+            fd.append('image', {
+                uri: newImage.uri,
+                type: 'image/jpeg',
+                name: 'course.jpg',
+            });
+            
+            xhr.onload = () => {
+                const d = JSON.parse(xhr.responseText);
+                if (d.success) { router.back(); } else { Alert.alert('Erreur', d.message); }
+            };
+            xhr.onerror = () => { Alert.alert('Erreur', 'Impossible de modifier.'); };
+            xhr.send(fd);
+        } catch (e) {
+            Alert.alert('Erreur', 'Impossible de modifier.');
+        }
     };
 
     return (
