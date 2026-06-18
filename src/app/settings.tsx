@@ -1,3 +1,6 @@
+// ==========================================
+// settings.tsx — COMPLET (compact, stats optimisées)
+// ==========================================
 import { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Alert, Modal, Linking } from 'react-native';
 import { Image } from 'expo-image';
@@ -17,39 +20,12 @@ export default function SettingsScreen() {
     const [editType, setEditType] = useState('');
     const [editValue, setEditValue] = useState('');
     const [devImageIndex, setDevImageIndex] = useState(0);
+    const devImages = [require('../../assets/images/dev1.jpg'), require('../../assets/images/dev2.jpg'), require('../../assets/images/dev3.jpg'), require('../../assets/images/dev4.jpg'), require('../../assets/images/dev5.jpg'), require('../../assets/images/dev6.jpg')];
 
-    const devImages = [
-        require('../../assets/images/dev1.jpg'),
-        require('../../assets/images/dev2.jpg'),
-        require('../../assets/images/dev3.jpg'),
-        require('../../assets/images/dev4.jpg'),
-        require('../../assets/images/dev5.jpg'),
-        require('../../assets/images/dev6.jpg'),
-    ];
-
-    useEffect(() => {
-        AsyncStorage.getItem('theme').then(t => { if (t) setTheme(t); });
-        const interval = setInterval(() => {
-            setDevImageIndex(prev => (prev + 1) % devImages.length);
-        }, 4000);
-        return () => clearInterval(interval);
-    }, []);
+    useEffect(() => { AsyncStorage.getItem('theme').then(t => { if (t) setTheme(t); }); const interval = setInterval(() => { setDevImageIndex(prev => (prev + 1) % devImages.length); }, 4000); return () => clearInterval(interval); }, []);
 
     const isDark = theme === 'dark';
-    const colors = {
-        bg: isDark ? '#020617' : '#f0f2f5',
-        card: isDark ? '#0f172a' : '#ffffff',
-        cardAlt: isDark ? '#1a1a2e' : '#f8fafc',
-        text: isDark ? '#f1f5f9' : '#1a1a2e',
-        textSec: isDark ? '#94a3b8' : '#64748b',
-        border: isDark ? 'rgba(99,102,241,0.2)' : '#e2e8f0',
-        inputBg: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc',
-        primary: '#6366f1',
-        primaryLight: '#818cf8',
-        success: '#10b981',
-        danger: '#ef4444',
-        warning: '#f59e0b',
-    };
+    const colors = { bg: isDark ? '#020617' : '#f0f2f5', card: isDark ? '#0f172a' : '#ffffff', cardAlt: isDark ? '#1a1a2e' : '#f8fafc', text: isDark ? '#f1f5f9' : '#1a1a2e', textSec: isDark ? '#94a3b8' : '#64748b', border: isDark ? 'rgba(99,102,241,0.2)' : '#e2e8f0', inputBg: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc', primary: '#6366f1', primaryLight: '#818cf8', success: '#10b981', danger: '#ef4444', warning: '#f59e0b' };
 
     useFocusEffect(useCallback(() => { loadData(); }, []));
 
@@ -62,60 +38,31 @@ export default function SettingsScreen() {
         loadStats(userData.matricule);
     };
 
-    const checkOnline = async () => {
-        try { const r = await fetch(`${API_URL}/ping`); setOnline((await r.json()).success); } catch (e) { setOnline(false); }
-    };
+    const checkOnline = async () => { try { const r = await fetch(`${API_URL}/ping`); setOnline((await r.json()).success); } catch (e) { setOnline(false); } };
 
+    // ==========================================
+    // STATS OPTIMISÉES (2 requêtes)
+    // ==========================================
     const loadStats = async (matricule) => {
         try {
             const r = await fetch(`${API_URL}/courses/${matricule}`);
             const d = await r.json();
             if (d.success) {
-                let tn = 0, tp = 0, tl = 0;
-                for (const c of d.courses) {
-                    try {
-                        const nr = await fetch(`${API_URL}/course/${c.id}`);
-                        const nd = await nr.json();
-                        if (nd.success) {
-                            tn += nd.notes.filter(n => n.type === 'note').length;
-                            tp += nd.notes.filter(n => n.type === 'support').length;
-                            tl += nd.notes.filter(n => n.type === 'link').length;
-                        }
-                    } catch (e) {}
-                }
-                setStats({ courses: d.courses.length, notes: tn, pdfs: tp, links: tl });
+                const notes = d.allNotes || [];
+                setStats({ courses: d.courses.length, notes: notes.filter(n => n.type === 'note').length, pdfs: notes.filter(n => n.type === 'support').length, links: notes.filter(n => n.type === 'link').length });
             }
         } catch (e) {}
     };
 
     const handleLogout = async () => { await AsyncStorage.removeItem('currentUser'); router.replace('/'); };
-
     const openEdit = (type, currentValue) => { setEditType(type); setEditValue(currentValue || ''); setEditModal(true); };
-
     const saveEdit = async () => {
-        try {
-            const r = await fetch(`${API_URL}/update-profile/${user.matricule}`, {
-                method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ [editType]: editValue })
-            });
-            const d = await r.json();
-            if (d.success) { setUser(d.user); await AsyncStorage.setItem('currentUser', JSON.stringify(d.user)); }
-            else { Alert.alert('Erreur', d.message); }
-        } catch (e) { Alert.alert('Erreur', 'Impossible de modifier.'); }
+        try { const r = await fetch(`${API_URL}/update-profile/${user.matricule}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ [editType]: editValue }) }); const d = await r.json(); if (d.success) { setUser(d.user); await AsyncStorage.setItem('currentUser', JSON.stringify(d.user)); } else { Alert.alert('Erreur', d.message); } } catch (e) { Alert.alert('Erreur', 'Impossible de modifier.'); }
         setEditModal(false);
     };
-
     const pickImage = async () => {
         const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.7 });
-        if (!result.canceled) {
-            const fd = new FormData();
-            fd.append('photo', { uri: result.assets[0].uri, type: 'image/jpeg', name: 'profile.jpg' } as any);
-            try {
-                const r = await fetch(`${API_URL}/upload-profile-photo/${user.matricule}`, { method: 'POST', body: fd });
-                const d = await r.json();
-                if (d.success) { const updated = { ...user, photo: d.photoUrl }; setUser(updated); await AsyncStorage.setItem('currentUser', JSON.stringify(updated)); }
-            } catch (e) {}
-        }
+        if (!result.canceled) { const fd = new FormData(); fd.append('photo', { uri: result.assets[0].uri, type: 'image/jpeg', name: 'profile.jpg' } as any); try { const r = await fetch(`${API_URL}/upload-profile-photo/${user.matricule}`, { method: 'POST', body: fd }); const d = await r.json(); if (d.success) { const updated = { ...user, photo: d.photoUrl }; setUser(updated); await AsyncStorage.setItem('currentUser', JSON.stringify(updated)); } } catch (e) {} }
     };
 
     if (!user) return <View style={[styles.container, { backgroundColor: colors.bg }]}><Text style={{ color: colors.text, textAlign: 'center', marginTop: 100 }}>Chargement...</Text></View>;
@@ -123,56 +70,28 @@ export default function SettingsScreen() {
     return (
         <View style={[styles.container, { backgroundColor: colors.bg }]}>
             <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
-                    <FontAwesome5 name="arrow-left" size={18} color={colors.primary} />
-                </TouchableOpacity>
+                <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}><FontAwesome5 name="arrow-left" size={18} color={colors.primary} /></TouchableOpacity>
                 <Text style={[styles.headerTitle, { color: colors.text }]}>Paramètres</Text>
                 <View style={styles.headerBtn} />
             </View>
 
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                
-                {/* SECTION PROFIL */}
                 <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
                     <TouchableOpacity onPress={pickImage} style={styles.avatarContainer}>
-                        {user.photo ? (
-                            <Image source={{ uri: API_URL.replace('/api', '') + user.photo }} style={styles.avatar} contentFit="cover" transition={200} cachePolicy="memory-disk" />
-                        ) : (
-                            <View style={styles.avatarPlaceholder}>
-                                <FontAwesome5 name="user" size={60} color="#fff" />
-                            </View>
-                        )}
-                        <View style={styles.avatarBadge}>
-                            <FontAwesome5 name="camera" size={14} color="#fff" />
-                        </View>
+                        {user.photo ? <Image source={{ uri: API_URL.replace('/api', '') + user.photo }} style={styles.avatar} contentFit="cover" transition={200} cachePolicy="memory-disk" /> : <View style={styles.avatarPlaceholder}><FontAwesome5 name="user" size={60} color="#fff" /></View>}
+                        <View style={styles.avatarBadge}><FontAwesome5 name="camera" size={14} color="#fff" /></View>
                     </TouchableOpacity>
                     <Text style={[styles.userName, { color: colors.text }]}>{user.nom || '---'}</Text>
                     <Text style={[styles.userMatricule, { color: colors.textSec }]}>{user.matricule}</Text>
 
                     <View style={styles.infoGrid}>
-                        <TouchableOpacity style={[styles.infoItem, { backgroundColor: colors.cardAlt, borderColor: colors.border }]} onPress={() => openEdit('nom', user.nom)}>
-                            <FontAwesome5 name="user" size={14} color={colors.primaryLight} />
-                            <Text style={[styles.infoValue, { color: colors.text }]} numberOfLines={1}>{user.nom || '---'}</Text>
-                            <FontAwesome5 name="pen" size={10} color={colors.textSec} />
-                        </TouchableOpacity>
-                        <View style={[styles.infoItem, { backgroundColor: colors.cardAlt, borderColor: colors.border }]}>
-                            <FontAwesome5 name="id-card" size={14} color={colors.primaryLight} />
-                            <Text style={[styles.infoValue, { color: colors.text }]}>{user.matricule}</Text>
-                        </View>
-                        <TouchableOpacity style={[styles.infoItem, { backgroundColor: colors.cardAlt, borderColor: colors.border }]} onPress={() => openEdit('email', user.email)}>
-                            <FontAwesome5 name="envelope" size={14} color={colors.primaryLight} />
-                            <Text style={[styles.infoValue, { color: colors.text }]} numberOfLines={1}>{user.email || 'Non renseigné'}</Text>
-                            <FontAwesome5 name="pen" size={10} color={colors.textSec} />
-                        </TouchableOpacity>
-                        <View style={[styles.infoItem, { backgroundColor: colors.cardAlt, borderColor: colors.border }]}>
-                            <FontAwesome5 name="palette" size={14} color={colors.primaryLight} />
-                            <Text style={[styles.infoValue, { color: colors.text }]}>{isDark ? '🌙 Sombre' : '☀️ Clair'}</Text>
-                        </View>
+                        <TouchableOpacity style={[styles.infoItem, { backgroundColor: colors.cardAlt, borderColor: colors.border }]} onPress={() => openEdit('nom', user.nom)}><FontAwesome5 name="user" size={14} color={colors.primaryLight} /><Text style={[styles.infoValue, { color: colors.text }]} numberOfLines={1}>{user.nom || '---'}</Text><FontAwesome5 name="pen" size={10} color={colors.textSec} /></TouchableOpacity>
+                        <View style={[styles.infoItem, { backgroundColor: colors.cardAlt, borderColor: colors.border }]}><FontAwesome5 name="id-card" size={14} color={colors.primaryLight} /><Text style={[styles.infoValue, { color: colors.text }]}>{user.matricule}</Text></View>
+                        <TouchableOpacity style={[styles.infoItem, { backgroundColor: colors.cardAlt, borderColor: colors.border }]} onPress={() => openEdit('email', user.email)}><FontAwesome5 name="envelope" size={14} color={colors.primaryLight} /><Text style={[styles.infoValue, { color: colors.text }]} numberOfLines={1}>{user.email || 'Non renseigné'}</Text><FontAwesome5 name="pen" size={10} color={colors.textSec} /></TouchableOpacity>
+                        <View style={[styles.infoItem, { backgroundColor: colors.cardAlt, borderColor: colors.border }]}><FontAwesome5 name="palette" size={14} color={colors.primaryLight} /><Text style={[styles.infoValue, { color: colors.text }]}>{isDark ? '🌙 Sombre' : '☀️ Clair'}</Text></View>
                     </View>
 
-                    <Text style={[styles.sectionTitle, { color: colors.primaryLight }]}>
-                        <FontAwesome5 name="chart-bar" size={14} color={colors.primaryLight} /> Statistiques
-                    </Text>
+                    <Text style={[styles.sectionTitle, { color: colors.primaryLight }]}><FontAwesome5 name="chart-bar" size={14} color={colors.primaryLight} /> Statistiques</Text>
                     <View style={styles.statsGrid}>
                         <StatBox icon="book" value={stats.courses} label="Cours" color={colors} />
                         <StatBox icon="sticky-note" value={stats.notes} label="Notes" color={colors} />
@@ -182,21 +101,14 @@ export default function SettingsScreen() {
 
                     <View style={[styles.connectionBar, { backgroundColor: online ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', borderColor: online ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)' }]}>
                         <FontAwesome5 name="wifi" size={14} color={online ? colors.success : colors.danger} />
-                        <Text style={{ color: online ? colors.success : colors.danger, fontSize: 13, fontWeight: '500', flex: 1, marginLeft: 10 }}>
-                            {online ? 'Connecté à Internet' : 'Pas de connexion'}
-                        </Text>
+                        <Text style={{ color: online ? colors.success : colors.danger, fontSize: 13, fontWeight: '500', flex: 1, marginLeft: 10 }}>{online ? 'Connecté à Internet' : 'Pas de connexion'}</Text>
                         <View style={[styles.statusDot, { backgroundColor: online ? colors.success : colors.danger }]} />
                     </View>
                 </View>
 
-                {/* SECTION À PROPOS */}
                 <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                    <Text style={[styles.sectionHeading, { color: colors.text }]}>
-                        <FontAwesome5 name="info-circle" size={16} color={colors.primaryLight} /> À propos de GeNot
-                    </Text>
-                    <Text style={[styles.aboutDesc, { color: colors.textSec }]}>
-                        Plateforme de gestion des notes de cours conçue pour les étudiants. Centralisez vos cours, notes, supports PDF et liens utiles en un seul endroit. Ne perdez plus jamais vos précieuses ressources académiques !
-                    </Text>
+                    <Text style={[styles.sectionHeading, { color: colors.text }]}><FontAwesome5 name="info-circle" size={16} color={colors.primaryLight} /> À propos de GeNot</Text>
+                    <Text style={[styles.aboutDesc, { color: colors.textSec }]}>Plateforme de gestion des notes de cours conçue pour les étudiants. Centralisez vos cours, notes, supports PDF et liens utiles en un seul endroit. Ne perdez plus jamais vos précieuses ressources académiques !</Text>
                     <View style={styles.featureList}>
                         <FeatureItem icon="check-circle" text="Gestion des cours" color={colors} />
                         <FeatureItem icon="check-circle" text="Notes organisées" color={colors} />
@@ -207,65 +119,18 @@ export default function SettingsScreen() {
                     </View>
                 </View>
 
-                {/* SECTION DÉVELOPPEUR */}
                 <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                    <Text style={[styles.sectionHeading, { color: colors.text }]}>
-                        <FontAwesome5 name="code" size={16} color={colors.primaryLight} /> Développeur
-                    </Text>
-                    
-                    <View style={styles.devHeader}>
-                        <Image source={devImages[devImageIndex]} style={styles.devAvatarLarge} contentFit="cover" transition={600} />
-                        <Text style={[styles.devName, { color: colors.text }]}>Jean TSHIKAKU</Text>
-                        <Text style={[styles.devRole, { color: colors.primaryLight }]}>Développeur Junior & Étudiant</Text>
-                    </View>
-
-                    <Text style={[styles.devBio, { color: colors.textSec }]}>
-                        Passionné par la technologie et l'innovation, je crée des solutions numériques pour faciliter la vie des étudiants. Ce projet est né de mon propre besoin d'organiser mes notes de cours.
-                    </Text>
-
+                    <Text style={[styles.sectionHeading, { color: colors.text }]}><FontAwesome5 name="code" size={16} color={colors.primaryLight} /> Développeur</Text>
+                    <View style={styles.devHeader}><Image source={devImages[devImageIndex]} style={styles.devAvatarLarge} contentFit="cover" transition={600} /><Text style={[styles.devName, { color: colors.text }]}>Jean TSHIKAKU</Text><Text style={[styles.devRole, { color: colors.primaryLight }]}>Développeur Junior & Étudiant</Text></View>
+                    <Text style={[styles.devBio, { color: colors.textSec }]}>Passionné par la technologie et l'innovation, je crée des solutions numériques pour faciliter la vie des étudiants. Ce projet est né de mon propre besoin d'organiser mes notes de cours.</Text>
                     <Text style={[styles.contactHeading, { color: colors.text }]}>Me contacter</Text>
-                    
-                    <TouchableOpacity style={[styles.contactCard, { backgroundColor: colors.cardAlt, borderColor: colors.border }]} onPress={() => Linking.openURL('https://wa.me/243832976093')}>
-                        <View style={[styles.contactIconW, { backgroundColor: 'rgba(37,211,102,0.15)' }]}>
-                            <FontAwesome5 name="whatsapp" size={20} color="#25d366" />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                            <Text style={[styles.contactLabel, { color: colors.textSec }]}>WhatsApp</Text>
-                            <Text style={[styles.contactValue, { color: colors.text }]}>+243 83 29 760 93</Text>
-                        </View>
-                        <FontAwesome5 name="external-link-alt" size={12} color={colors.textSec} />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={[styles.contactCard, { backgroundColor: colors.cardAlt, borderColor: colors.border }]} onPress={() => Linking.openURL('tel:+243999543276')}>
-                        <View style={[styles.contactIconP, { backgroundColor: 'rgba(99,102,241,0.15)' }]}>
-                            <FontAwesome5 name="phone-alt" size={18} color={colors.primary} />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                            <Text style={[styles.contactLabel, { color: colors.textSec }]}>Appel</Text>
-                            <Text style={[styles.contactValue, { color: colors.text }]}>+243 99 95 432 76</Text>
-                        </View>
-                        <FontAwesome5 name="external-link-alt" size={12} color={colors.textSec} />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={[styles.contactCard, { backgroundColor: colors.cardAlt, borderColor: colors.border }]} onPress={() => Linking.openURL('mailto:jtshikaku@gmail.com')}>
-                        <View style={[styles.contactIconE, { backgroundColor: 'rgba(239,68,68,0.15)' }]}>
-                            <FontAwesome5 name="envelope" size={18} color={colors.danger} />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                            <Text style={[styles.contactLabel, { color: colors.textSec }]}>Email</Text>
-                            <Text style={[styles.contactValue, { color: colors.text }]}>jtshikaku@gmail.com</Text>
-                        </View>
-                        <FontAwesome5 name="external-link-alt" size={12} color={colors.textSec} />
-                    </TouchableOpacity>
-
+                    <TouchableOpacity style={[styles.contactCard, { backgroundColor: colors.cardAlt, borderColor: colors.border }]} onPress={() => Linking.openURL('https://wa.me/243832976093')}><View style={[styles.contactIconW, { backgroundColor: 'rgba(37,211,102,0.15)' }]}><FontAwesome5 name="whatsapp" size={20} color="#25d366" /></View><View style={{ flex: 1 }}><Text style={[styles.contactLabel, { color: colors.textSec }]}>WhatsApp</Text><Text style={[styles.contactValue, { color: colors.text }]}>+243 83 29 760 93</Text></View><FontAwesome5 name="external-link-alt" size={12} color={colors.textSec} /></TouchableOpacity>
+                    <TouchableOpacity style={[styles.contactCard, { backgroundColor: colors.cardAlt, borderColor: colors.border }]} onPress={() => Linking.openURL('tel:+243999543276')}><View style={[styles.contactIconP, { backgroundColor: 'rgba(99,102,241,0.15)' }]}><FontAwesome5 name="phone-alt" size={18} color={colors.primary} /></View><View style={{ flex: 1 }}><Text style={[styles.contactLabel, { color: colors.textSec }]}>Appel</Text><Text style={[styles.contactValue, { color: colors.text }]}>+243 99 95 432 76</Text></View><FontAwesome5 name="external-link-alt" size={12} color={colors.textSec} /></TouchableOpacity>
+                    <TouchableOpacity style={[styles.contactCard, { backgroundColor: colors.cardAlt, borderColor: colors.border }]} onPress={() => Linking.openURL('mailto:jtshikaku@gmail.com')}><View style={[styles.contactIconE, { backgroundColor: 'rgba(239,68,68,0.15)' }]}><FontAwesome5 name="envelope" size={18} color={colors.danger} /></View><View style={{ flex: 1 }}><Text style={[styles.contactLabel, { color: colors.textSec }]}>Email</Text><Text style={[styles.contactValue, { color: colors.text }]}>jtshikaku@gmail.com</Text></View><FontAwesome5 name="external-link-alt" size={12} color={colors.textSec} /></TouchableOpacity>
                     <Text style={[styles.copyright, { color: colors.textSec }]}>© 2026 Jean TSHIKAKU. Tous droits réservés.</Text>
                 </View>
 
-                <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-                    <FontAwesome5 name="sign-out-alt" size={16} color="#f87171" />
-                    <Text style={styles.logoutBtnText}> Se déconnecter</Text>
-                </TouchableOpacity>
-
+                <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}><FontAwesome5 name="sign-out-alt" size={16} color="#f87171" /><Text style={styles.logoutBtnText}> Se déconnecter</Text></TouchableOpacity>
             </ScrollView>
 
             <Modal visible={editModal} transparent animationType="fade">
@@ -274,12 +139,8 @@ export default function SettingsScreen() {
                         <Text style={[styles.modalTitle, { color: colors.text }]}>Modifier {editType === 'nom' ? 'le nom' : "l'email"}</Text>
                         <TextInput style={[styles.modalInput, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]} value={editValue} onChangeText={setEditValue} placeholder={editType === 'nom' ? 'Nouveau nom' : 'Nouvel email'} placeholderTextColor={colors.textSec} />
                         <View style={styles.modalActions}>
-                            <TouchableOpacity style={[styles.modalBtn, { backgroundColor: colors.inputBg }]} onPress={() => setEditModal(false)}>
-                                <Text style={{ color: colors.text, fontWeight: '600' }}>Annuler</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={[styles.modalBtn, { backgroundColor: colors.primary }]} onPress={saveEdit}>
-                                <Text style={{ color: '#fff', fontWeight: '600' }}>Enregistrer</Text>
-                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.modalBtn, { backgroundColor: colors.inputBg }]} onPress={() => setEditModal(false)}><Text style={{ color: colors.text, fontWeight: '600' }}>Annuler</Text></TouchableOpacity>
+                            <TouchableOpacity style={[styles.modalBtn, { backgroundColor: colors.primary }]} onPress={saveEdit}><Text style={{ color: '#fff', fontWeight: '600' }}>Enregistrer</Text></TouchableOpacity>
                         </View>
                     </View>
                 </View>
@@ -288,26 +149,9 @@ export default function SettingsScreen() {
     );
 }
 
-const StatBox = ({ icon, value, label, color }) => (
-    <View style={[statStyles.box, { backgroundColor: color.cardAlt, borderColor: color.border }]}>
-        <FontAwesome5 name={icon} size={18} color={color.primaryLight} style={{ marginBottom: 6 }} />
-        <Text style={[statStyles.value, { color: color.text }]}>{value}</Text>
-        <Text style={[statStyles.label, { color: color.textSec }]}>{label}</Text>
-    </View>
-);
-
-const statStyles = StyleSheet.create({
-    box: { flex: 1, borderRadius: 14, padding: 14, alignItems: 'center', borderWidth: 1 },
-    value: { fontSize: 22, fontWeight: '800' },
-    label: { fontSize: 11, marginTop: 2, fontWeight: '500' },
-});
-
-const FeatureItem = ({ icon, text, color }) => (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-        <FontAwesome5 name={icon} size={12} color={color.success} />
-        <Text style={{ color: color.textSec, fontSize: 13 }}>{text}</Text>
-    </View>
-);
+const StatBox = ({ icon, value, label, color }) => (<View style={[statStyles.box, { backgroundColor: color.cardAlt, borderColor: color.border }]}><FontAwesome5 name={icon} size={18} color={color.primaryLight} style={{ marginBottom: 6 }} /><Text style={[statStyles.value, { color: color.text }]}>{value}</Text><Text style={[statStyles.label, { color: color.textSec }]}>{label}</Text></View>);
+const statStyles = StyleSheet.create({ box: { flex: 1, borderRadius: 14, padding: 14, alignItems: 'center', borderWidth: 1 }, value: { fontSize: 22, fontWeight: '800' }, label: { fontSize: 11, marginTop: 2, fontWeight: '500' } });
+const FeatureItem = ({ icon, text, color }) => (<View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}><FontAwesome5 name={icon} size={12} color={color.success} /><Text style={{ color: color.textSec, fontSize: 13 }}>{text}</Text></View>);
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
