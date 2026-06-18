@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, Alert, TextInput, Image, Modal, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, Alert, TextInput, Modal, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
 
 const API_URL = 'https://jtt.alwaysdata.net/api';
 
@@ -31,15 +30,13 @@ export default function CourseScreen() {
     useEffect(() => { AsyncStorage.getItem('theme').then(t => { if (t) setTheme(t); }); }, []);
 
     const isDark = theme === 'dark';
-    const colors = {
-        bg: isDark ? '#020617' : '#f0f2f5', card: isDark ? '#0f172a' : '#ffffff',
-        text: isDark ? '#f1f5f9' : '#1a1a2e', textSec: isDark ? '#94a3b8' : '#64748b',
-        border: isDark ? 'rgba(99,102,241,0.2)' : '#e2e8f0', inputBg: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc',
-        primary: '#6366f1', danger: '#ef4444', success: '#10b981', warning: '#f59e0b',
-    };
+    const colors = { bg: isDark ? '#020617' : '#f0f2f5', card: isDark ? '#0f172a' : '#ffffff', text: isDark ? '#f1f5f9' : '#1a1a2e', textSec: isDark ? '#94a3b8' : '#64748b', border: isDark ? 'rgba(99,102,241,0.2)' : '#e2e8f0', inputBg: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc', primary: '#6366f1', danger: '#ef4444', success: '#10b981', warning: '#f59e0b' };
 
     useFocusEffect(useCallback(() => { loadCourse(); }, [id]));
 
+    // ==========================================
+    // CHARGEMENT OPTIMISÉ : 1 seule requête
+    // ==========================================
     const loadCourse = async () => {
         try {
             const r = await fetch(`${API_URL}/course/${id}`);
@@ -48,72 +45,31 @@ export default function CourseScreen() {
         } catch (e) {}
     };
 
-    const deleteItem = (noteId: number) => {
-        Alert.alert('Supprimer', 'Mettre dans la corbeille ?', [
-            { text: 'Annuler', style: 'cancel' },
-            { text: 'Supprimer', onPress: async () => {
-                await fetch(`${API_URL}/notes/${noteId}`, { method: 'DELETE' });
-                loadCourse();
-            }},
-        ]);
-    };
+    const deleteItem = (noteId: number) => { Alert.alert('Supprimer', 'Mettre dans la corbeille ?', [{ text: 'Annuler', style: 'cancel' }, { text: 'Supprimer', onPress: async () => { await fetch(`${API_URL}/notes/${noteId}`, { method: 'DELETE' }); loadCourse(); } }]); };
 
-    const shareItem = async (title: string, url?: string) => {
-        try {
-            await Sharing.shareAsync(url || '', { dialogTitle: title });
-        } catch (e) {
-            Alert.alert('Partage', url || 'Aucun lien à partager');
-        }
-    };
+    const shareItem = async (title: string, url?: string) => { try { await Sharing.shareAsync(url || '', { dialogTitle: title }); } catch (e) { Alert.alert('Partage', url || 'Aucun lien à partager'); } };
 
-    const downloadFile = (fileUrl: string) => {
-        if (fileUrl) {
-            const fullUrl = `${API_URL.replace('/api', '')}${fileUrl}`;
-            Alert.alert('Téléchargement', fullUrl);
-        }
-    };
+    const openEditNote = (note: any) => { setEditNoteId(note.id); setEditNoteTitle(note.title); setEditNoteContent(note.content || ''); setEditNoteVisible(true); };
 
-    const openEditNote = (note: any) => {
-        setEditNoteId(note.id);
-        setEditNoteTitle(note.title);
-        setEditNoteContent(note.content || '');
-        setEditNoteVisible(true);
-    };
+    const saveEditedNote = async () => { if (!editNoteTitle || !editNoteContent) { Alert.alert('Erreur', 'Titre et contenu requis.'); return; } await fetch(`${API_URL}/notes/${editNoteId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: editNoteTitle, content: editNoteContent }) }); setEditNoteVisible(false); loadCourse(); };
 
-    const saveEditedNote = async () => {
-        if (!editNoteTitle || !editNoteContent) { Alert.alert('Erreur', 'Titre et contenu requis.'); return; }
-        await fetch(`${API_URL}/notes/${editNoteId}`, {
-            method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: editNoteTitle, content: editNoteContent })
-        });
-        setEditNoteVisible(false);
-        loadCourse();
-    };
+    // Filtrage
+    const filterNotes = (type) => notes.filter(n => n.type === type && (!searchTerm || (n.title||'').toLowerCase().includes(searchTerm.toLowerCase()) || (n.content||'').toLowerCase().includes(searchTerm.toLowerCase())));
 
-    // Filtrage par recherche
-    const supports = notes.filter(n => n.type === 'support' && (
-        !searchTerm || (n.title || '').toLowerCase().includes(searchTerm.toLowerCase()) || (n.content || '').toLowerCase().includes(searchTerm.toLowerCase())
-    ));
-    const links = notes.filter(n => n.type === 'link' && (
-        !searchTerm || (n.title || '').toLowerCase().includes(searchTerm.toLowerCase()) || (n.content || '').toLowerCase().includes(searchTerm.toLowerCase())
-    ));
-    const notesList = notes.filter(n => n.type === 'note' && (
-        !searchTerm || (n.title || '').toLowerCase().includes(searchTerm.toLowerCase()) || (n.content || '').toLowerCase().includes(searchTerm.toLowerCase())
-    ));
+    const supports = filterNotes('support');
+    const links = filterNotes('link');
+    const notesList = filterNotes('note');
 
     const renderSupport = ({ item }) => (
         <View style={[styles.itemCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <TouchableOpacity style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }} onPress={() => item.file_url ? Alert.alert('PDF', `${API_URL.replace('/api','')}${item.file_url}`) : null}>
                 <View style={[styles.itemIcon, { backgroundColor: 'rgba(239,68,68,0.1)' }]}><Text style={{ fontSize: 20 }}>📄</Text></View>
-                <View style={styles.itemInfo}>
-                    <Text style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>{item.title}</Text>
-                    <Text style={[styles.itemSubtitle, { color: colors.textSec }]}>{item.content || 'Auteur inconnu'}</Text>
-                </View>
+                <View style={styles.itemInfo}><Text style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>{item.title}</Text><Text style={[styles.itemSubtitle, { color: colors.textSec }]}>{item.content || 'Auteur inconnu'}</Text></View>
             </TouchableOpacity>
             <View style={styles.itemActions}>
                 <TouchableOpacity onPress={() => deleteItem(item.id)} style={styles.itemBtn}><Text>🗑️</Text></TouchableOpacity>
                 <TouchableOpacity onPress={() => shareItem(item.title, item.file_url)} style={styles.itemBtn}><Text>🔗</Text></TouchableOpacity>
-                {item.file_url && <TouchableOpacity onPress={() => downloadFile(item.file_url)} style={styles.itemBtn}><Text>⬇️</Text></TouchableOpacity>}
+                {item.file_url && <TouchableOpacity onPress={() => Alert.alert('Téléchargement', `${API_URL.replace('/api','')}${item.file_url}`)} style={styles.itemBtn}><Text>⬇️</Text></TouchableOpacity>}
             </View>
         </View>
     );
@@ -122,10 +78,7 @@ export default function CourseScreen() {
         <View style={[styles.itemCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                 <View style={[styles.itemIcon, { backgroundColor: 'rgba(6,182,212,0.1)' }]}><Text style={{ fontSize: 20 }}>🔗</Text></View>
-                <View style={styles.itemInfo}>
-                    <Text style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>{item.title}</Text>
-                    <Text style={[styles.itemSubtitle, { color: colors.primary }]} numberOfLines={1}>{item.content || '#'}</Text>
-                </View>
+                <View style={styles.itemInfo}><Text style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>{item.title}</Text><Text style={[styles.itemSubtitle, { color: colors.primary }]} numberOfLines={1}>{item.content || '#'}</Text></View>
             </View>
             <View style={styles.itemActions}>
                 <TouchableOpacity onPress={() => deleteItem(item.id)} style={styles.itemBtn}><Text>🗑️</Text></TouchableOpacity>
@@ -139,19 +92,13 @@ export default function CourseScreen() {
         <View style={[styles.itemCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftWidth: 3, borderLeftColor: colors.primary }]}>
             <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                 <View style={[styles.itemIcon, { backgroundColor: 'rgba(16,185,129,0.1)' }]}><Text style={{ fontSize: 20 }}>📝</Text></View>
-                <View style={styles.itemInfo}>
-                    <Text style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>{item.title}</Text>
-                    <Text style={[styles.itemSubtitle, { color: colors.textSec }]} numberOfLines={2}>{item.content?.replace(/<[^>]*>/g, '').substring(0, 80) || 'Note vide'}</Text>
-                </View>
+                <View style={styles.itemInfo}><Text style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>{item.title}</Text><Text style={[styles.itemSubtitle, { color: colors.textSec }]} numberOfLines={2}>{item.content?.replace(/<[^>]*>/g, '').substring(0, 80) || 'Note vide'}</Text></View>
             </View>
             <View style={styles.itemActions}>
                 <TouchableOpacity onPress={() => openEditNote(item)} style={styles.itemBtn}><Text>✏️</Text></TouchableOpacity>
                 <TouchableOpacity onPress={() => deleteItem(item.id)} style={styles.itemBtn}><Text>🗑️</Text></TouchableOpacity>
                 <TouchableOpacity onPress={() => shareItem(item.title)} style={styles.itemBtn}><Text>🔗</Text></TouchableOpacity>
-                <TouchableOpacity onPress={() => {
-                    const text = `Titre: ${item.title}\nDate: ${new Date(item.created_at).toLocaleString('fr-FR')}\n\n${item.content?.replace(/<[^>]*>/g, '') || ''}`;
-                    Alert.alert('Note', text.substring(0, 200) + '...');
-                }} style={styles.itemBtn}><Text>👁️</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => { const text = `Titre: ${item.title}\nDate: ${new Date(item.created_at).toLocaleString('fr-FR')}\n\n${item.content?.replace(/<[^>]*>/g, '') || ''}`; Alert.alert('Note', text.substring(0, 200) + '...'); }} style={styles.itemBtn}><Text>👁️</Text></TouchableOpacity>
             </View>
         </View>
     );
@@ -176,77 +123,25 @@ export default function CourseScreen() {
             <View style={[styles.searchBar, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
                 <Text style={{ fontSize: 16, marginRight: 8 }}>🔍</Text>
                 <TextInput style={[styles.searchInput, { color: colors.text }]} placeholder="Rechercher..." placeholderTextColor={colors.textSec} value={searchTerm} onChangeText={setSearchTerm} />
-                {searchTerm.length > 0 && (
-                    <TouchableOpacity onPress={() => setSearchTerm('')}>
-                        <Text style={{ color: colors.textSec, fontSize: 16 }}>✕</Text>
-                    </TouchableOpacity>
-                )}
+                {searchTerm.length > 0 && <TouchableOpacity onPress={() => setSearchTerm('')}><Text style={{ color: colors.textSec, fontSize: 16 }}>✕</Text></TouchableOpacity>}
             </View>
 
-            <View style={styles.tabs}>
-                {tabs.map(tab => (
-                    <TouchableOpacity key={tab.key} style={[styles.tab, currentTab === tab.key && { backgroundColor: colors.primary + '20' }]} onPress={() => setCurrentTab(tab.key)}>
-                        <Text style={[styles.tabText, { color: currentTab === tab.key ? colors.primary : colors.textSec }]}>{tab.label}</Text>
-                    </TouchableOpacity>
-                ))}
-            </View>
+            <View style={styles.tabs}>{tabs.map(tab => (<TouchableOpacity key={tab.key} style={[styles.tab, currentTab === tab.key && { backgroundColor: colors.primary + '20' }]} onPress={() => setCurrentTab(tab.key)}><Text style={[styles.tabText, { color: currentTab === tab.key ? colors.primary : colors.textSec }]}>{tab.label}</Text></TouchableOpacity>))}</View>
 
-            <FlatList data={activeTab.data} renderItem={activeTab.render} keyExtractor={item => item.id.toString()} contentContainerStyle={styles.list}
-                ListEmptyComponent={<View style={styles.empty}><Text style={{ fontSize: 40 }}>📭</Text><Text style={{ color: colors.textSec }}>Aucun élément</Text></View>}
-            />
+            <FlatList data={activeTab.data} renderItem={activeTab.render} keyExtractor={item => item.id.toString()} contentContainerStyle={styles.list} ListEmptyComponent={<View style={styles.empty}><Text style={{ fontSize: 40 }}>📭</Text><Text style={{ color: colors.textSec }}>Aucun élément</Text></View>} />
 
             {/* Modal Ajouter */}
             <Modal visible={addModalVisible} transparent animationType="fade">
                 <View style={styles.modalOverlay}>
                     <View style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                         <Text style={[styles.modalTitle, { color: colors.text }]}>Ajouter un élément</Text>
-                        <View style={styles.typeSelector}>
-                            {['pdf', 'link', 'note'].map(type => (
-                                <TouchableOpacity key={type} style={[styles.typeBtn, addType === type && { backgroundColor: colors.primary + '30', borderColor: colors.primary }]} onPress={() => setAddType(type)}>
-                                    <Text style={{ color: addType === type ? colors.primary : colors.textSec, fontSize: 13, textAlign: 'center' }}>{type === 'pdf' ? '📄 PDF' : type === 'link' ? '🔗 Lien' : '📝 Note'}</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
+                        <View style={styles.typeSelector}>{['pdf', 'link', 'note'].map(type => (<TouchableOpacity key={type} style={[styles.typeBtn, addType === type && { backgroundColor: colors.primary + '30', borderColor: colors.primary }]} onPress={() => setAddType(type)}><Text style={{ color: addType === type ? colors.primary : colors.textSec, fontSize: 13, textAlign: 'center' }}>{type === 'pdf' ? '📄 PDF' : type === 'link' ? '🔗 Lien' : '📝 Note'}</Text></TouchableOpacity>))}</View>
 
-                        {addType === 'pdf' && (
-                            <>
-                                <TextInput style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]} placeholder="Titre du PDF" placeholderTextColor={colors.textSec} value={pdfTitle} onChangeText={setPdfTitle} />
-                                <TextInput style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]} placeholder="Auteur" placeholderTextColor={colors.textSec} value={pdfAuthor} onChangeText={setPdfAuthor} />
-                                <TouchableOpacity style={[styles.btn, { backgroundColor: colors.primary }]} onPress={async () => {
-                                    if (!pdfTitle || !pdfAuthor) { Alert.alert('Erreur', 'Tous les champs requis.'); return; }
-                                    const u = await AsyncStorage.getItem('currentUser');
-                                    const user = JSON.parse(u || '{}');
-                                    const fd = new FormData();
-                                    fd.append('course_id', id as string);
-                                    fd.append('title', pdfTitle);
-                                    fd.append('content', pdfAuthor);
-                                    fd.append('type', 'support');
-                                    fd.append('user_matricule', user.matricule);
-                                    await fetch(`${API_URL}/notes`, { method: 'POST', body: fd });
-                                    setAddModalVisible(false); setAddType(''); setPdfTitle(''); setPdfAuthor('');
-                                    loadCourse();
-                                }}><Text style={{ color: '#fff', textAlign: 'center', fontWeight: '600' }}>Ajouter PDF</Text></TouchableOpacity>
-                            </>
-                        )}
+                        {addType === 'pdf' && (<><TextInput style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]} placeholder="Titre du PDF" placeholderTextColor={colors.textSec} value={pdfTitle} onChangeText={setPdfTitle} /><TextInput style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]} placeholder="Auteur" placeholderTextColor={colors.textSec} value={pdfAuthor} onChangeText={setPdfAuthor} /><TouchableOpacity style={[styles.btn, { backgroundColor: colors.primary }]} onPress={async () => { if (!pdfTitle || !pdfAuthor) { Alert.alert('Erreur', 'Tous les champs requis.'); return; } const u = await AsyncStorage.getItem('currentUser'); const user = JSON.parse(u || '{}'); const fd = new FormData(); fd.append('course_id', id as string); fd.append('title', pdfTitle); fd.append('content', pdfAuthor); fd.append('type', 'support'); fd.append('user_matricule', user.matricule); await fetch(`${API_URL}/notes`, { method: 'POST', body: fd }); setAddModalVisible(false); setAddType(''); setPdfTitle(''); setPdfAuthor(''); loadCourse(); }}><Text style={{ color: '#fff', textAlign: 'center', fontWeight: '600' }}>Ajouter PDF</Text></TouchableOpacity></>)}
 
-                        {addType === 'link' && (
-                            <>
-                                <TextInput style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]} placeholder="Titre" placeholderTextColor={colors.textSec} value={linkTitle} onChangeText={setLinkTitle} />
-                                <TextInput style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]} placeholder="URL" placeholderTextColor={colors.textSec} value={linkUrl} onChangeText={setLinkUrl} />
-                                <TouchableOpacity style={[styles.btn, { backgroundColor: colors.primary }]} onPress={async () => {
-                                    if (!linkTitle || !linkUrl) { Alert.alert('Erreur', 'Tous les champs requis.'); return; }
-                                    await fetch(`${API_URL}/notes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ course_id: id, title: linkTitle, content: linkUrl, type: 'link' }) });
-                                    setAddModalVisible(false); setAddType(''); setLinkTitle(''); setLinkUrl('');
-                                    loadCourse();
-                                }}><Text style={{ color: '#fff', textAlign: 'center', fontWeight: '600' }}>Ajouter Lien</Text></TouchableOpacity>
-                            </>
-                        )}
+                        {addType === 'link' && (<><TextInput style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]} placeholder="Titre" placeholderTextColor={colors.textSec} value={linkTitle} onChangeText={setLinkTitle} /><TextInput style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]} placeholder="URL" placeholderTextColor={colors.textSec} value={linkUrl} onChangeText={setLinkUrl} /><TouchableOpacity style={[styles.btn, { backgroundColor: colors.primary }]} onPress={async () => { if (!linkTitle || !linkUrl) { Alert.alert('Erreur', 'Tous les champs requis.'); return; } await fetch(`${API_URL}/notes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ course_id: id, title: linkTitle, content: linkUrl, type: 'link' }) }); setAddModalVisible(false); setAddType(''); setLinkTitle(''); setLinkUrl(''); loadCourse(); }}><Text style={{ color: '#fff', textAlign: 'center', fontWeight: '600' }}>Ajouter Lien</Text></TouchableOpacity></>)}
 
-                        {addType === 'note' && (
-                            <TouchableOpacity style={[styles.btn, { backgroundColor: colors.primary }]} onPress={() => { setAddModalVisible(false); setNotebookVisible(true); }}>
-                                <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '600' }}>📝 Ouvrir le cahier</Text>
-                            </TouchableOpacity>
-                        )}
+                        {addType === 'note' && (<TouchableOpacity style={[styles.btn, { backgroundColor: colors.primary }]} onPress={() => { setAddModalVisible(false); setNotebookVisible(true); }}><Text style={{ color: '#fff', textAlign: 'center', fontWeight: '600' }}>📝 Ouvrir le cahier</Text></TouchableOpacity>)}
 
                         <TouchableOpacity onPress={() => { setAddModalVisible(false); setAddType(''); }}><Text style={{ color: colors.textSec, textAlign: 'center', marginTop: 12 }}>Annuler</Text></TouchableOpacity>
                     </View>
@@ -259,12 +154,7 @@ export default function CourseScreen() {
                     <View style={[styles.notebookHeader, { borderBottomColor: colors.border }]}>
                         <TouchableOpacity onPress={() => { setNotebookVisible(false); setNoteTitle(''); setNoteContent(''); }}><Text style={{ color: colors.danger }}>Annuler</Text></TouchableOpacity>
                         <Text style={{ color: colors.text, fontWeight: '700' }}>📝 Nouvelle note</Text>
-                        <TouchableOpacity onPress={async () => {
-                            if (!noteTitle || !noteContent) { Alert.alert('Erreur', 'Titre et contenu requis.'); return; }
-                            await fetch(`${API_URL}/notes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ course_id: id, title: noteTitle, content: noteContent, type: 'note' }) });
-                            setNotebookVisible(false); setNoteTitle(''); setNoteContent('');
-                            loadCourse();
-                        }}><Text style={{ color: colors.primary, fontWeight: '700' }}>Enregistrer</Text></TouchableOpacity>
+                        <TouchableOpacity onPress={async () => { if (!noteTitle || !noteContent) { Alert.alert('Erreur', 'Titre et contenu requis.'); return; } await fetch(`${API_URL}/notes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ course_id: id, title: noteTitle, content: noteContent, type: 'note' }) }); setNotebookVisible(false); setNoteTitle(''); setNoteContent(''); loadCourse(); }}><Text style={{ color: colors.primary, fontWeight: '700' }}>Enregistrer</Text></TouchableOpacity>
                     </View>
                     <ScrollView style={{ flex: 1, padding: 16 }}>
                         <TextInput style={[styles.noteTitleInput, { color: colors.text, borderBottomColor: colors.border }]} placeholder="Titre de la note" placeholderTextColor={colors.textSec} value={noteTitle} onChangeText={setNoteTitle} />

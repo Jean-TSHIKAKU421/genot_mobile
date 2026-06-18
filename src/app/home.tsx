@@ -19,19 +19,10 @@ export default function HomeScreen() {
 
     useEffect(() => { AsyncStorage.getItem('theme').then(t => { if (t) setTheme(t); }); }, []);
 
-    const toggleTheme = async () => {
-        const newTheme = theme === 'dark' ? 'light' : 'dark';
-        setTheme(newTheme);
-        await AsyncStorage.setItem('theme', newTheme);
-    };
+    const toggleTheme = async () => { const newTheme = theme === 'dark' ? 'light' : 'dark'; setTheme(newTheme); await AsyncStorage.setItem('theme', newTheme); };
 
     const isDark = theme === 'dark';
-    const colors = {
-        bg: isDark ? '#020617' : '#f0f2f5', card: isDark ? '#0f172a' : '#ffffff',
-        text: isDark ? '#f1f5f9' : '#1a1a2e', textSec: isDark ? '#94a3b8' : '#64748b',
-        border: isDark ? 'rgba(99,102,241,0.2)' : '#e2e8f0', inputBg: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc',
-        primary: '#6366f1', danger: '#ef4444', warning: '#f59e0b', success: '#10b981',
-    };
+    const colors = { bg: isDark ? '#020617' : '#f0f2f5', card: isDark ? '#0f172a' : '#ffffff', text: isDark ? '#f1f5f9' : '#1a1a2e', textSec: isDark ? '#94a3b8' : '#64748b', border: isDark ? 'rgba(99,102,241,0.2)' : '#e2e8f0', inputBg: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc', primary: '#6366f1', danger: '#ef4444', warning: '#f59e0b', success: '#10b981' };
 
     useFocusEffect(useCallback(() => { loadData(); }, []));
 
@@ -40,16 +31,7 @@ export default function HomeScreen() {
         if (!u) { router.replace('/'); return; }
         const userData = JSON.parse(u);
         setUser(userData);
-
-        // ==========================================
-        // TRACKING VISITE MOBILE
-        // ==========================================
-        fetch(`${API_URL}/visits`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ platform: 'mobile', page: 'home', matricule: userData.matricule })
-        }).then(r => r.json()).then(d => console.log('✅ Tracking:', d)).catch(e => console.log('❌ Tracking error:', e));
-
+        fetch(`${API_URL}/visits`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platform: 'mobile', page: 'home', matricule: userData.matricule }) }).catch(() => {});
         try {
             const r = await fetch(`${API_URL}/courses/${userData.matricule}`);
             const data = await r.json();
@@ -60,35 +42,11 @@ export default function HomeScreen() {
 
     const handleLogout = async () => { await AsyncStorage.removeItem('currentUser'); router.replace('/'); };
 
-    const getPrenom = (name) => {
-        if (!name) return 'Utilisateur';
-        const words = name.trim().split(/\s+/);
-        return words.length > 1 ? words[words.length - 1] : words[0];
-    };
+    const getPrenom = (name) => { if (!name) return 'Utilisateur'; const words = name.trim().split(/\s+/); return words.length > 1 ? words[words.length - 1] : words[0]; };
 
-    const handleSearch = (term) => {
-        setSearchTerm(term);
-        if (!term.trim()) { setFilteredCourses([]); return; }
-        const t = term.toLowerCase().trim();
-        const results = courses.filter(c => {
-            const title = (c.title || '').toLowerCase();
-            const prof = (c.professor || '').toLowerCase();
-            const desc = (c.description || '').toLowerCase();
-            return title.includes(t) || prof.includes(t) || desc.includes(t);
-        });
-        setFilteredCourses(results);
-    };
+    const handleSearch = (term) => { setSearchTerm(term); if (!term.trim()) { setFilteredCourses([]); return; } const t = term.toLowerCase().trim(); setFilteredCourses(courses.filter(c => (c.title||'').toLowerCase().includes(t) || (c.professor||'').toLowerCase().includes(t) || (c.description||'').toLowerCase().includes(t))); };
 
-    const toggleVoiceSearch = async () => {
-        if (isListening) { setIsListening(false); return; }
-        try {
-            const { default: SpeechRecognition } = await import('expo-speech-recognition');
-            setIsListening(true);
-            const result = await SpeechRecognition.startListening({ language: 'fr-FR', continuous: false });
-            if (result && result.transcript) { setSearchTerm(result.transcript); handleSearch(result.transcript); }
-        } catch (e) { Alert.alert('Info', 'Micro non disponible.'); }
-        finally { setIsListening(false); }
-    };
+    const toggleVoiceSearch = async () => { if (isListening) { setIsListening(false); return; } try { const { default: SpeechRecognition } = await import('expo-speech-recognition'); setIsListening(true); const result = await SpeechRecognition.startListening({ language: 'fr-FR', continuous: false }); if (result && result.transcript) { setSearchTerm(result.transcript); handleSearch(result.transcript); } } catch (e) { Alert.alert('Info', 'Micro non disponible.'); } finally { setIsListening(false); } };
 
     if (!ready) return <View style={[styles.container, { backgroundColor: colors.bg }]}><Text style={{ color: colors.text, textAlign: 'center', marginTop: 100 }}>Chargement...</Text></View>;
 
@@ -96,43 +54,22 @@ export default function HomeScreen() {
 
     const renderCourse = ({ item }) => (
         <TouchableOpacity style={[styles.courseCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => router.push({ pathname: '/course', params: { id: item.id } })}>
-            {item.image_url ? (
-                <Image source={{ uri: API_URL.replace('/api', '') + item.image_url }} style={styles.courseImage} contentFit="cover" transition={300} cachePolicy="memory-disk" placeholder={{ uri: PLACEHOLDER }} />
-            ) : (
-                <View style={styles.courseImagePlaceholder}><FontAwesome5 name="book" size={45} color="#fff" /></View>
-            )}
+            {item.image_url ? <Image source={{ uri: API_URL.replace('/api', '') + item.image_url }} style={styles.courseImage} contentFit="cover" transition={300} cachePolicy="memory-disk" placeholder={{ uri: PLACEHOLDER }} /> : <View style={styles.courseImagePlaceholder}><FontAwesome5 name="book" size={45} color="#fff" /></View>}
             <View style={styles.courseBody}>
                 <Text style={[styles.courseTitle, { color: colors.text }]} numberOfLines={1}>{item.title}</Text>
-                <View style={styles.courseRow}>
-                    <FontAwesome5 name="user-tie" size={12} color={colors.primary} />
-                    <Text style={[styles.courseProfessor, { color: colors.textSec }]}> {item.professor || '---------'}</Text>
-                </View>
+                <View style={styles.courseRow}><FontAwesome5 name="user-tie" size={12} color={colors.primary} /><Text style={[styles.courseProfessor, { color: colors.textSec }]}> {item.professor || '---------'}</Text></View>
                 <Text style={[styles.courseMeta, { color: colors.textSec }]}>📝 {item.noteCount || 0} note(s)</Text>
                 <Text style={styles.courseDate}>📅 {new Date(item.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</Text>
                 <View style={styles.courseActions}>
-                    <TouchableOpacity style={styles.btnEnter} onPress={() => router.push({ pathname: '/course', params: { id: item.id } })}>
-                        <FontAwesome5 name="eye" size={14} color="#fff" />
-                        <Text style={styles.btnEnterText}> Voir</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.btnEdit} onPress={() => router.push({ pathname: '/edit-course', params: { id: item.id } })}>
-                        <FontAwesome5 name="edit" size={16} color={colors.warning} />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.btnDelete} onPress={() => deleteCourse(item.id)}>
-                        <FontAwesome5 name="trash-alt" size={16} color={colors.danger} />
-                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.btnEnter} onPress={() => router.push({ pathname: '/course', params: { id: item.id } })}><FontAwesome5 name="eye" size={14} color="#fff" /><Text style={styles.btnEnterText}> Voir</Text></TouchableOpacity>
+                    <TouchableOpacity style={styles.btnEdit} onPress={() => router.push({ pathname: '/edit-course', params: { id: item.id } })}><FontAwesome5 name="edit" size={16} color={colors.warning} /></TouchableOpacity>
+                    <TouchableOpacity style={styles.btnDelete} onPress={() => deleteCourse(item.id)}><FontAwesome5 name="trash-alt" size={16} color={colors.danger} /></TouchableOpacity>
                 </View>
             </View>
         </TouchableOpacity>
     );
 
-    const deleteCourse = (id) => {
-        Alert.alert('Supprimer', 'Mettre ce cours dans la corbeille ?', [
-            { text: 'Annuler', style: 'cancel' },
-            { text: 'Supprimer', style: 'destructive', onPress: async () => {
-                await fetch(`${API_URL}/courses/${id}`, { method: 'DELETE' }); loadData();
-            }},
-        ]);
-    };
+    const deleteCourse = (id) => { Alert.alert('Supprimer', 'Mettre ce cours dans la corbeille ?', [{ text: 'Annuler', style: 'cancel' }, { text: 'Supprimer', style: 'destructive', onPress: async () => { await fetch(`${API_URL}/courses/${id}`, { method: 'DELETE' }); loadData(); } }]); };
 
     return (
         <View style={[styles.container, { backgroundColor: colors.bg }]}>
@@ -140,27 +77,13 @@ export default function HomeScreen() {
                 <View style={styles.headerTop}>
                     <FontAwesome5 name="book" size={40} color={colors.primary} />
                     <Text style={[styles.headerUserName, { color: colors.text }]}>{user ? getPrenom(user.nom) : ''}</Text>
-                    <TouchableOpacity onPress={() => router.push('/settings')}>
-                        {user?.photo ? (
-                            <Image source={{ uri: API_URL.replace('/api', '') + user.photo }} style={styles.profilePhoto} contentFit="cover" transition={200} cachePolicy="memory-disk" />
-                        ) : (
-                            <View style={styles.profilePlaceholder}><FontAwesome5 name="user" size={22} color="#fff" /></View>
-                        )}
-                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => router.push('/settings')}>{user?.photo ? <Image source={{ uri: API_URL.replace('/api', '') + user.photo }} style={styles.profilePhoto} contentFit="cover" transition={200} cachePolicy="memory-disk" /> : <View style={styles.profilePlaceholder}><FontAwesome5 name="user" size={22} color="#fff" /></View>}</TouchableOpacity>
                 </View>
                 <View style={[styles.headerActions, { borderTopColor: colors.border }]}>
-                    <TouchableOpacity style={[styles.iconBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]} onPress={toggleTheme}>
-                        <FontAwesome5 name={isDark ? 'sun' : 'moon'} size={18} color={colors.text} />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.iconBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]} onPress={() => router.push('/settings')}>
-                        <FontAwesome5 name="cog" size={18} color={colors.text} />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.iconBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]} onPress={() => router.push('/trash')}>
-                        <FontAwesome5 name="trash-alt" size={18} color={colors.text} />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.iconBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]} onPress={handleLogout}>
-                        <FontAwesome5 name="sign-out-alt" size={18} color={colors.text} />
-                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.iconBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]} onPress={toggleTheme}><FontAwesome5 name={isDark ? 'sun' : 'moon'} size={18} color={colors.text} /></TouchableOpacity>
+                    <TouchableOpacity style={[styles.iconBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]} onPress={() => router.push('/settings')}><FontAwesome5 name="cog" size={18} color={colors.text} /></TouchableOpacity>
+                    <TouchableOpacity style={[styles.iconBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]} onPress={() => router.push('/trash')}><FontAwesome5 name="trash-alt" size={18} color={colors.text} /></TouchableOpacity>
+                    <TouchableOpacity style={[styles.iconBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]} onPress={handleLogout}><FontAwesome5 name="sign-out-alt" size={18} color={colors.text} /></TouchableOpacity>
                 </View>
             </View>
 
@@ -169,30 +92,15 @@ export default function HomeScreen() {
             <View style={[styles.searchBar, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
                 <FontAwesome5 name="search" size={16} color={colors.textSec} style={{ marginRight: 8 }} />
                 <TextInput style={[styles.searchInput, { color: colors.text }]} placeholder="Rechercher un cours..." placeholderTextColor={colors.textSec} value={searchTerm} onChangeText={handleSearch} />
-                {searchTerm.length > 0 && (
-                    <TouchableOpacity onPress={() => { setSearchTerm(''); setFilteredCourses([]); }}>
-                        <FontAwesome5 name="times" size={16} color={colors.textSec} style={{ marginRight: 8 }} />
-                    </TouchableOpacity>
-                )}
-                <TouchableOpacity style={[styles.micBtn, isListening && { backgroundColor: '#ef4444' }]} onPress={toggleVoiceSearch}>
-                    <FontAwesome5 name="microphone" size={16} color={isListening ? '#fff' : colors.textSec} />
-                </TouchableOpacity>
+                {searchTerm.length > 0 && <TouchableOpacity onPress={() => { setSearchTerm(''); setFilteredCourses([]); }}><FontAwesome5 name="times" size={16} color={colors.textSec} style={{ marginRight: 8 }} /></TouchableOpacity>}
+                <TouchableOpacity style={[styles.micBtn, isListening && { backgroundColor: '#ef4444' }]} onPress={toggleVoiceSearch}><FontAwesome5 name="microphone" size={16} color={isListening ? '#fff' : colors.textSec} /></TouchableOpacity>
             </View>
 
             <FlatList data={displayCourses} renderItem={renderCourse} keyExtractor={item => item.id.toString()} contentContainerStyle={styles.list}
-                ListEmptyComponent={
-                    <View style={[styles.emptyState, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                        <FontAwesome5 name="book-open" size={50} color={colors.textSec} style={{ marginBottom: 12 }} />
-                        <Text style={[styles.emptyTitle, { color: colors.text }]}>{searchTerm ? `Aucun cours pour "${searchTerm}"` : 'Aucun cours'}</Text>
-                        <Text style={[styles.emptyText, { color: colors.textSec }]}>{searchTerm ? 'Essayez d\'autres mots-clés' : 'Ajoutez votre premier cours !'}</Text>
-                    </View>
-                }
+                ListEmptyComponent={<View style={[styles.emptyState, { backgroundColor: colors.card, borderColor: colors.border }]}><FontAwesome5 name="book-open" size={50} color={colors.textSec} style={{ marginBottom: 12 }} /><Text style={[styles.emptyTitle, { color: colors.text }]}>{searchTerm ? `Aucun cours pour "${searchTerm}"` : 'Aucun cours'}</Text><Text style={[styles.emptyText, { color: colors.textSec }]}>{searchTerm ? "Essayez d'autres mots-clés" : 'Ajoutez votre premier cours !'}</Text></View>}
             />
 
-            <TouchableOpacity style={styles.addBtn} onPress={() => router.push('/add-course')}>
-                <FontAwesome5 name="plus" size={16} color="#fff" />
-                <Text style={styles.addBtnText}> Ajouter un cours</Text>
-            </TouchableOpacity>
+            <TouchableOpacity style={styles.addBtn} onPress={() => router.push('/add-course')}><FontAwesome5 name="plus" size={16} color="#fff" /><Text style={styles.addBtnText}> Ajouter un cours</Text></TouchableOpacity>
         </View>
     );
 }
