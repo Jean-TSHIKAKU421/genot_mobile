@@ -27,16 +27,10 @@ export default function HomeScreen() {
 
     const isDark = theme === 'dark';
     const colors = {
-        bg: isDark ? '#020617' : '#f0f2f5',
-        card: isDark ? '#0f172a' : '#ffffff',
-        text: isDark ? '#f1f5f9' : '#1a1a2e',
-        textSec: isDark ? '#94a3b8' : '#64748b',
-        border: isDark ? 'rgba(99,102,241,0.2)' : '#e2e8f0',
-        inputBg: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc',
-        primary: '#6366f1',
-        danger: '#ef4444',
-        warning: '#f59e0b',
-        success: '#10b981',
+        bg: isDark ? '#020617' : '#f0f2f5', card: isDark ? '#0f172a' : '#ffffff',
+        text: isDark ? '#f1f5f9' : '#1a1a2e', textSec: isDark ? '#94a3b8' : '#64748b',
+        border: isDark ? 'rgba(99,102,241,0.2)' : '#e2e8f0', inputBg: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc',
+        primary: '#6366f1', danger: '#ef4444', warning: '#f59e0b', success: '#10b981',
     };
 
     useFocusEffect(useCallback(() => { loadData(); }, []));
@@ -46,14 +40,14 @@ export default function HomeScreen() {
         if (!u) { router.replace('/'); return; }
         const userData = JSON.parse(u);
         setUser(userData);
-        
+
         // Tracking visite mobile
         fetch(`${API_URL}/visits`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ platform: 'mobile', page: 'home', matricule: userData.matricule })
         }).catch(() => {});
-        
+
         try {
             const r = await fetch(`${API_URL}/courses/${userData.matricule}`);
             const data = await r.json();
@@ -62,10 +56,7 @@ export default function HomeScreen() {
         setReady(true);
     };
 
-    const handleLogout = async () => {
-        await AsyncStorage.removeItem('currentUser');
-        router.replace('/');
-    };
+    const handleLogout = async () => { await AsyncStorage.removeItem('currentUser'); router.replace('/'); };
 
     const getPrenom = (name) => {
         if (!name) return 'Utilisateur';
@@ -93,14 +84,11 @@ export default function HomeScreen() {
             setIsListening(true);
             const result = await SpeechRecognition.startListening({ language: 'fr-FR', continuous: false });
             if (result && result.transcript) { setSearchTerm(result.transcript); handleSearch(result.transcript); }
-        } catch (e) {
-            Alert.alert('Info', 'Reconnaissance vocale nécessite expo-speech-recognition.');
-        } finally { setIsListening(false); }
+        } catch (e) { Alert.alert('Info', 'Micro non disponible.'); }
+        finally { setIsListening(false); }
     };
 
-    if (!ready) {
-        return <View style={[styles.container, { backgroundColor: colors.bg }]}><Text style={{ color: colors.text, textAlign: 'center', marginTop: 100 }}>Chargement...</Text></View>;
-    }
+    if (!ready) return <View style={[styles.container, { backgroundColor: colors.bg }]}><Text style={{ color: colors.text, textAlign: 'center', marginTop: 100 }}>Chargement...</Text></View>;
 
     const displayCourses = filteredCourses.length > 0 || searchTerm.length > 0 ? filteredCourses : courses;
 
@@ -109,9 +97,7 @@ export default function HomeScreen() {
             {item.image_url ? (
                 <Image source={{ uri: API_URL.replace('/api', '') + item.image_url }} style={styles.courseImage} contentFit="cover" transition={300} cachePolicy="memory-disk" placeholder={{ uri: PLACEHOLDER }} />
             ) : (
-                <View style={styles.courseImagePlaceholder}>
-                    <FontAwesome5 name="book" size={45} color="#fff" />
-                </View>
+                <View style={styles.courseImagePlaceholder}><FontAwesome5 name="book" size={45} color="#fff" /></View>
             )}
             <View style={styles.courseBody}>
                 <Text style={[styles.courseTitle, { color: colors.text }]} numberOfLines={1}>{item.title}</Text>
@@ -141,8 +127,7 @@ export default function HomeScreen() {
         Alert.alert('Supprimer', 'Mettre ce cours dans la corbeille ?', [
             { text: 'Annuler', style: 'cancel' },
             { text: 'Supprimer', style: 'destructive', onPress: async () => {
-                await fetch(`${API_URL}/courses/${id}`, { method: 'DELETE' });
-                loadData();
+                await fetch(`${API_URL}/courses/${id}`, { method: 'DELETE' }); loadData();
             }},
         ]);
     };
@@ -157,9 +142,7 @@ export default function HomeScreen() {
                         {user?.photo ? (
                             <Image source={{ uri: API_URL.replace('/api', '') + user.photo }} style={styles.profilePhoto} contentFit="cover" transition={200} cachePolicy="memory-disk" />
                         ) : (
-                            <View style={styles.profilePlaceholder}>
-                                <FontAwesome5 name="user" size={22} color="#fff" />
-                            </View>
+                            <View style={styles.profilePlaceholder}><FontAwesome5 name="user" size={22} color="#fff" /></View>
                         )}
                     </TouchableOpacity>
                 </View>
