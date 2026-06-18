@@ -41,12 +41,14 @@ export default function HomeScreen() {
         const userData = JSON.parse(u);
         setUser(userData);
 
-        // Tracking visite mobile
+        // ==========================================
+        // TRACKING VISITE MOBILE
+        // ==========================================
         fetch(`${API_URL}/visits`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ platform: 'mobile', page: 'home', matricule: userData.matricule })
-        }).catch(() => {});
+        }).then(r => r.json()).then(d => console.log('✅ Tracking:', d)).catch(e => console.log('❌ Tracking error:', e));
 
         try {
             const r = await fetch(`${API_URL}/courses/${userData.matricule}`);
