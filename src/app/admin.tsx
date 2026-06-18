@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, ActivityIndicator, Alert } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
@@ -13,28 +13,28 @@ export default function AdminScreen() {
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState('dashboard');
     const [ready, setReady] = useState(false);
+    const [visits, setVisits] = useState(null);
 
     const colors = { bg: '#020617', card: '#0f172a', text: '#f1f5f9', textSec: '#94a3b8', border: 'rgba(99,102,241,0.2)', inputBg: 'rgba(255,255,255,0.05)', primary: '#6366f1', success: '#10b981', danger: '#ef4444', warning: '#f59e0b' };
 
     useFocusEffect(useCallback(() => { loadStats(); }, []));
 
     const loadStats = async () => {
-        try {
-            const r = await fetch(`${API_URL}/admin/stats`);
-            const d = await r.json();
-            if (d.success && d.stats) { setStats(d.stats); }
-        } catch (e) { Alert.alert('Erreur', 'Échec de connexion au serveur.'); }
+        try { const r = await fetch(`${API_URL}/admin/stats`); const d = await r.json(); if (d.success && d.stats) setStats(d.stats); }
+        catch (e) { Alert.alert('Erreur', 'Échec de connexion.'); }
         setReady(true);
+    };
+
+    const loadVisits = async () => {
+        try { const r = await fetch(`${API_URL}/admin/visits`); const d = await r.json(); if (d.success) setVisits(d); }
+        catch (e) {}
     };
 
     const executeSQL = async () => {
         if (!sqlQuery.trim()) return;
         setLoading(true); setSqlError(''); setSqlResult(null);
-        try {
-            const r = await fetch(`${API_URL}/admin/sql`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: sqlQuery }) });
-            const d = await r.json();
-            if (d.success) { setSqlResult(d); } else { setSqlError(d.message); }
-        } catch (e) { setSqlError('Erreur de connexion.'); }
+        try { const r = await fetch(`${API_URL}/admin/sql`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: sqlQuery }) }); const d = await r.json(); if (d.success) setSqlResult(d); else setSqlError(d.message); }
+        catch (e) { setSqlError('Erreur de connexion.'); }
         setLoading(false);
     };
 
@@ -49,12 +49,11 @@ export default function AdminScreen() {
             </View>
 
             <View style={styles.tabs}>
-                <TouchableOpacity style={[styles.tab, activeTab === 'dashboard' && { backgroundColor: colors.primary }]} onPress={() => setActiveTab('dashboard')}>
-                    <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>Dashboard</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.tab, activeTab === 'sql' && { backgroundColor: colors.primary }]} onPress={() => setActiveTab('sql')}>
-                    <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>SQL</Text>
-                </TouchableOpacity>
+                {['dashboard', 'visits', 'sql'].map(tab => (
+                    <TouchableOpacity key={tab} style={[styles.tab, activeTab === tab && { backgroundColor: colors.primary }]} onPress={() => { setActiveTab(tab); if (tab === 'visits') loadVisits(); }}>
+                        <Text style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>{tab === 'visits' ? 'Visites' : tab === 'sql' ? 'SQL' : 'Dashboard'}</Text>
+                    </TouchableOpacity>
+                ))}
             </View>
 
             {activeTab === 'dashboard' && (
@@ -69,6 +68,57 @@ export default function AdminScreen() {
                 </ScrollView>
             )}
 
+            {activeTab === 'visits' && visits && (
+                <ScrollView contentContainerStyle={styles.content}>
+                    <View style={styles.statsRow}>
+                        <View style={[styles.statBox, { flex: 1, borderColor: colors.primary }]}><Text style={[styles.statNum, { color: colors.primary }]}>{visits.total}</Text><Text style={styles.statLab}>Total</Text></View>
+                        <View style={[styles.statBox, { flex: 1, borderColor: colors.success }]}><Text style={[styles.statNum, { color: colors.success }]}>{visits.today}</Text><Text style={styles.statLab}>Aujourd'hui</Text></View>
+                        <View style={[styles.statBox, { flex: 1, borderColor: colors.warning }]}><Text style={[styles.statNum, { color: colors.warning }]}>{visits.week}</Text><Text style={styles.statLab}>7 jours</Text></View>
+                    </View>
+
+                    <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 24 }]}>📱 Plateformes</Text>
+                    <View style={{ flexDirection: 'row', gap: 14 }}>
+                        <View style={{ flex: 1, backgroundColor: colors.card, borderRadius: 16, padding: 20, borderWidth: 2, borderColor: colors.primary, alignItems: 'center' }}>
+                            <FontAwesome5 name="globe" size={32} color={colors.primary} />
+                            <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16, marginTop: 10 }}>Web</Text>
+                            <Text style={{ color: colors.primary, fontWeight: '800', fontSize: 36, marginTop: 8 }}>{visits.platforms?.find(p => p.platform === 'web')?.count || 0}</Text>
+                            <Text style={{ color: colors.textSec, fontSize: 12, marginTop: 4 }}>visites</Text>
+                            <View style={{ width: '100%', height: 8, backgroundColor: colors.border, borderRadius: 4, marginTop: 12, overflow: 'hidden' }}>
+                                <View style={{ width: `${visits.total > 0 ? ((visits.platforms?.find(p => p.platform === 'web')?.count || 0) / visits.total) * 100 : 0}%`, height: '100%', backgroundColor: colors.primary, borderRadius: 4 }} />
+                            </View>
+                            <Text style={{ color: colors.textSec, fontSize: 11, marginTop: 6 }}>{visits.total > 0 ? Math.round(((visits.platforms?.find(p => p.platform === 'web')?.count || 0) / visits.total) * 100) : 0}%</Text>
+                        </View>
+                        <View style={{ flex: 1, backgroundColor: colors.card, borderRadius: 16, padding: 20, borderWidth: 2, borderColor: colors.success, alignItems: 'center' }}>
+                            <FontAwesome5 name="mobile-alt" size={38} color={colors.success} />
+                            <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16, marginTop: 10 }}>Mobile</Text>
+                            <Text style={{ color: colors.success, fontWeight: '800', fontSize: 36, marginTop: 8 }}>{visits.platforms?.find(p => p.platform === 'mobile')?.count || 0}</Text>
+                            <Text style={{ color: colors.textSec, fontSize: 12, marginTop: 4 }}>visites</Text>
+                            <View style={{ width: '100%', height: 8, backgroundColor: colors.border, borderRadius: 4, marginTop: 12, overflow: 'hidden' }}>
+                                <View style={{ width: `${visits.total > 0 ? ((visits.platforms?.find(p => p.platform === 'mobile')?.count || 0) / visits.total) * 100 : 0}%`, height: '100%', backgroundColor: colors.success, borderRadius: 4 }} />
+                            </View>
+                            <Text style={{ color: colors.textSec, fontSize: 11, marginTop: 6 }}>{visits.total > 0 ? Math.round(((visits.platforms?.find(p => p.platform === 'mobile')?.count || 0) / visits.total) * 100) : 0}%</Text>
+                        </View>
+                    </View>
+
+                    <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 24 }]}>📅 30 derniers jours</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                        <View style={{ flexDirection: 'row', gap: 4, height: 130, alignItems: 'flex-end', paddingBottom: 20 }}>
+                            {visits.daily?.map((d, i) => {
+                                const maxCount = Math.max(...(visits.daily?.map(x => x.count) || [1]));
+                                const height = maxCount > 0 ? (d.count / maxCount) * 80 : 0;
+                                return (
+                                    <View key={i} style={{ alignItems: 'center', width: 30 }}>
+                                        <Text style={{ color: colors.textSec, fontSize: 9 }}>{d.count}</Text>
+                                        <View style={{ width: 22, height: Math.max(height, 2), backgroundColor: colors.primary, borderRadius: 4, marginTop: 4 }} />
+                                        <Text style={{ color: colors.textSec, fontSize: 8, marginTop: 4 }}>{d.date?.substring(5)}</Text>
+                                    </View>
+                                );
+                            })}
+                        </View>
+                    </ScrollView>
+                </ScrollView>
+            )}
+
             {activeTab === 'sql' && (
                 <ScrollView contentContainerStyle={styles.content}>
                     <TextInput style={[styles.sqlInput, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]} placeholder="SELECT * FROM users..." placeholderTextColor={colors.textSec} value={sqlQuery} onChangeText={setSqlQuery} multiline textAlignVertical="top" />
@@ -79,13 +129,7 @@ export default function AdminScreen() {
                     {sqlResult?.data && (
                         <View style={{ marginTop: 10 }}>
                             <Text style={{ color: colors.success, marginBottom: 8 }}>{sqlResult.rowCount || sqlResult.data.length} résultat(s)</Text>
-                            <ScrollView horizontal>
-                                <View>
-                                    {sqlResult.data.slice(0, 30).map((row, i) => (
-                                        <Text key={i} style={{ color: colors.text, fontSize: 11, marginBottom: 4, fontFamily: 'monospace' }}>{JSON.stringify(row)}</Text>
-                                    ))}
-                                </View>
-                            </ScrollView>
+                            <ScrollView horizontal><View>{sqlResult.data.slice(0, 30).map((row, i) => (<Text key={i} style={{ color: colors.text, fontSize: 11, marginBottom: 4, fontFamily: 'monospace' }}>{JSON.stringify(row)}</Text>))}</View></ScrollView>
                         </View>
                     )}
                 </ScrollView>
@@ -102,9 +146,11 @@ const styles = StyleSheet.create({
     tab: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
     content: { padding: 16 },
     statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+    statsRow: { flexDirection: 'row', gap: 10, marginBottom: 4 },
     statBox: { width: '30%', borderRadius: 16, padding: 20, alignItems: 'center', borderWidth: 2 },
-    statNum: { fontSize: 32, fontWeight: '800' },
+    statNum: { fontSize: 28, fontWeight: '800' },
     statLab: { color: '#94a3b8', fontSize: 12, marginTop: 4 },
+    sectionTitle: { fontSize: 15, fontWeight: '700', marginBottom: 12 },
     sqlInput: { borderWidth: 2, borderRadius: 12, padding: 14, fontSize: 13, fontFamily: 'monospace', minHeight: 100, marginBottom: 10 },
     sqlBtn: { padding: 14, borderRadius: 12, alignItems: 'center' },
 });

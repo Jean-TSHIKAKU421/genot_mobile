@@ -46,6 +46,14 @@ export default function HomeScreen() {
         if (!u) { router.replace('/'); return; }
         const userData = JSON.parse(u);
         setUser(userData);
+        
+        // Tracking visite mobile
+        fetch(`${API_URL}/visits`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ platform: 'mobile', page: 'home', matricule: userData.matricule })
+        }).catch(() => {});
+        
         try {
             const r = await fetch(`${API_URL}/courses/${userData.matricule}`);
             const data = await r.json();
