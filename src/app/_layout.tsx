@@ -1,4 +1,3 @@
-// _layout.tsx
 import { useEffect, useState } from 'react';
 import { Stack, router, useSegments, useRootNavigationState } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -40,8 +39,9 @@ export default function Layout() {
                 <Stack.Screen name="home" options={{ headerRight: () => <ThemeToggle />, gestureEnabled: false }} />
                 <Stack.Screen name="settings" options={{ animation: 'slide_from_bottom' }} />
                 <Stack.Screen name="course" />
-                <Stack.Screen name="add-course" options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
-                <Stack.Screen name="edit-course" options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
+                <Stack.Screen name="add_course" options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
+                <Stack.Screen name="edit_course" options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
+                <Stack.Screen name="edit-course" />
                 <Stack.Screen name="trash" options={{ animation: 'fade' }} />
                 <Stack.Screen name="admin" options={{ animation: 'slide_from_left', gestureEnabled: false }} />
             </Stack>

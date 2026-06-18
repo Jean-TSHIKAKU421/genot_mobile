@@ -100,7 +100,7 @@ export default function HomeScreen() {
                 ListEmptyComponent={<View style={[styles.emptyState, { backgroundColor: colors.card, borderColor: colors.border }]}><FontAwesome5 name="book-open" size={50} color={colors.textSec} style={{ marginBottom: 12 }} /><Text style={[styles.emptyTitle, { color: colors.text }]}>{searchTerm ? `Aucun cours pour "${searchTerm}"` : 'Aucun cours'}</Text><Text style={[styles.emptyText, { color: colors.textSec }]}>{searchTerm ? "Essayez d'autres mots-clés" : 'Ajoutez votre premier cours !'}</Text></View>}
             />
 
-            <TouchableOpacity style={styles.addBtn} onPress={() => router.push('/add-course')}><FontAwesome5 name="plus" size={16} color="#fff" /><Text style={styles.addBtnText}> Ajouter un cours</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.addBtn} onPress={() => router.push('/add_course')}><FontAwesome5 name="plus" size={16} color="#fff" /><Text style={styles.addBtnText}> Ajouter un cours</Text></TouchableOpacity>
         </View>
     );
 }
