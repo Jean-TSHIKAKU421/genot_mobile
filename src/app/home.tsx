@@ -62,7 +62,7 @@ export default function HomeScreen() {
                 <Text style={styles.courseDate}>📅 {new Date(item.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</Text>
                 <View style={styles.courseActions}>
                     <TouchableOpacity style={styles.btnEnter} onPress={() => router.push({ pathname: '/course', params: { id: item.id } })}><FontAwesome5 name="eye" size={14} color="#fff" /><Text style={styles.btnEnterText}> Voir</Text></TouchableOpacity>
-                    <TouchableOpacity style={styles.btnEdit} onPress={() => router.push({ pathname: '/edit-course', params: { id: item.id } })}><FontAwesome5 name="edit" size={16} color={colors.warning} /></TouchableOpacity>
+                    <TouchableOpacity style={styles.btnEdit} onPress={() => router.push({ pathname: '/edit_course', params: { id: item.id } })}><FontAwesome5 name="edit" size={16} color={colors.warning} /></TouchableOpacity>
                     <TouchableOpacity style={styles.btnDelete} onPress={() => deleteCourse(item.id)}><FontAwesome5 name="trash-alt" size={16} color={colors.danger} /></TouchableOpacity>
                 </View>
             </View>

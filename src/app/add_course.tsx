@@ -35,24 +35,31 @@ export default function AddCourseScreen() {
         if (!title.trim()) { setMessage('Le titre du cours est requis.'); setMessageType('error'); return; }
         setLoading(true); setMessage('');
         try {
+            let imageUrl = null;
+            if (image) {
+                const imgFd = new FormData();
+                const ext = image.uri.split('.').pop() || 'jpg';
+                imgFd.append('image', { uri: image.uri, type: `image/${ext === 'png' ? 'png' : 'jpeg'}`, name: `img-${Date.now()}.${ext}` } as any);
+                imgFd.append('user_matricule', user.matricule);
+                const imgR = await fetch(`${API_URL}/upload-image`, { method: 'POST', body: imgFd });
+                const imgD = await imgR.json();
+                if (!imgD.success) { setMessage('Erreur upload image.'); setMessageType('error'); setLoading(false); return; }
+                imageUrl = imgD.url;
+            }
             const fd = new FormData();
             fd.append('title', title.trim());
             fd.append('user_matricule', user.matricule);
             if (professor.trim()) fd.append('professor', professor.trim());
             if (description.trim()) fd.append('description', description.trim());
-            if (image) { const ext = image.uri.split('.').pop() || 'jpg'; fd.append('image', { uri: image.uri, type: `image/${ext === 'png' ? 'png' : 'jpeg'}`, name: `course-${Date.now()}.${ext}` } as any); }
-            
-            const r = await fetch(`${API_URL}/courses`, { 
-                method: 'POST', 
-                body: fd,
-                headers: image ? {} : { 'Content-Type': 'multipart/form-data' }
-            });
+            if (imageUrl) fd.append('image_url', imageUrl);
+            const r = await fetch(`${API_URL}/courses`, { method: 'POST', body: fd });
             const d = await r.json();
             if (d.success) { setMessage('✅ Cours créé !'); setMessageType('success'); setTimeout(() => router.back(), 800); }
             else { setMessage(d.message || 'Erreur.'); setMessageType('error'); }
-        } catch (e) { setMessage('Impossible de contacter le serveur. ' + e.message); setMessageType('error'); }
+        } catch (e) { setMessage('Erreur: ' + e.message); setMessageType('error'); }
         setLoading(false);
     };
+
     if (!user) return <View style={[styles.container, { backgroundColor: colors.bg }]}><Text style={{ color: colors.text, textAlign: 'center', marginTop: 100 }}>Chargement...</Text></View>;
 
     return (
