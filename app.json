@@ -12,7 +12,8 @@
       "infoPlist": {
         "NSSpeechRecognitionUsageDescription": "GeNot a besoin de la reconnaissance vocale pour dicter vos notes et rechercher des cours.",
         "NSMicrophoneUsageDescription": "GeNot utilise le micro pour la recherche vocale et la dictée de notes."
-      }
+      },
+      "bundleIdentifier": "com.anonymous.GeNotApp"
     },
     "android": {
       "adaptiveIcon": {

@@ -1,3 +1,6 @@
+// ==========================================
+// settings.tsx
+// ==========================================
 import { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Alert, Modal, Linking } from 'react-native';
 import { Image } from 'expo-image';
@@ -21,7 +24,7 @@ export default function SettingsScreen() {
     const lo=async()=>{await AsyncStorage.removeItem('currentUser');router.replace('/')};
     const oe=(t,v)=>{set(t);sev(v||'');sem(true)};
     const se=async()=>{try{const r=await fetch(`${API_URL}/update-profile/${u.matricule}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({[et]:ev})});const d=await r.json();if(d.success){su(d.user);await AsyncStorage.setItem('currentUser',JSON.stringify(d.user))}else Alert.alert('Erreur',d.message)}catch(e){Alert.alert('Erreur','Impossible de modifier.')}sem(false)};
-    const pi=async()=>{const r=await ImagePicker.launchImageLibraryAsync({mediaTypes:['images'],allowsEditing:true,aspect:[1,1],quality:0.7});if(!r.canceled){try{const b64=await FileSystem.readAsStringAsync(r.assets[0].uri,{encoding:FileSystem.EncodingType.Base64});const fd=new FormData();fd.append('file',`data:image/jpeg;base64,${b64}`);fd.append('upload_preset',CL_UP);fd.append('folder','profiles');const cr=await fetch(CL_URL,{method:'POST',body:fd});const cd=await cr.json();if(cd.secure_url){const rr=await fetch(`${API_URL}/update-profile/${u.matricule}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({photo:cd.secure_url})});const dd=await rr.json();if(dd.success){const up={...u,photo:cd.secure_url};su(up);await AsyncStorage.setItem('currentUser',JSON.stringify(up))}else Alert.alert('Erreur',dd.message)}else Alert.alert('Erreur','Échec upload')}catch(e){Alert.alert('Erreur','Impossible upload')}}};
+    const pi=async()=>{const r=await ImagePicker.launchImageLibraryAsync({mediaTypes:['images'],allowsEditing:true,aspect:[1,1],quality:0.7});if(!r.canceled){try{const up=await FileSystem.uploadAsync(CL_URL,r.assets[0].uri,{httpMethod:'POST',uploadType:FileSystem.FileSystemUploadType.MULTIPART,fieldName:'file',parameters:{upload_preset:CL_UP,folder:'profiles',public_id:`profile-${u.matricule}`,overwrite:'true'}});const cd=JSON.parse(up.body);if(cd.secure_url){const rr=await fetch(`${API_URL}/update-profile/${u.matricule}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({photo:cd.secure_url})});const dd=await rr.json();if(dd.success){const up2={...u,photo:cd.secure_url};su(up2);await AsyncStorage.setItem('currentUser',JSON.stringify(up2))}else Alert.alert('Erreur',dd.message)}else Alert.alert('Erreur','Échec upload')}catch(e){Alert.alert('Erreur','Impossible upload')}}};
     if(!u)return<View style={[ss.ct,{backgroundColor:cl.bg}]}><Text style={{color:cl.tx,textAlign:'center',marginTop:100}}>Chargement...</Text></View>;
     return(
         <View style={[ss.ct,{backgroundColor:cl.bg}]}>
