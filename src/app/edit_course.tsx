@@ -4,6 +4,7 @@ import { FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 
 const API_URL = 'https://jtt.alwaysdata.net/api';
 const CLOUDINARY_URL = 'https://api.cloudinary.com/v1_1/dfosclwrp/image/upload';
@@ -43,8 +44,9 @@ export default function EditCourseScreen() {
         try {
             let imageUrl = currentImage;
             if (newImage) {
+                const base64 = await FileSystem.readAsStringAsync(newImage.uri, { encoding: FileSystem.EncodingType.Base64 });
                 const cfd = new FormData();
-                cfd.append('file', { uri: newImage.uri, type: 'image/jpeg', name: 'upload.jpg' } as any);
+                cfd.append('file', `data:image/jpeg;base64,${base64}`);
                 cfd.append('upload_preset', UPLOAD_PRESET);
                 const cr = await fetch(CLOUDINARY_URL, { method: 'POST', body: cfd });
                 const cd = await cr.json();
