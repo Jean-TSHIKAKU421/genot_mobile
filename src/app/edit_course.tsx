@@ -4,7 +4,7 @@ import { FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
 const API_URL = 'https://jtt.alwaysdata.net/api';
 const CLOUDINARY_URL = 'https://api.cloudinary.com/v1_1/dfosclwrp/image/upload';
@@ -50,9 +50,11 @@ export default function EditCourseScreen() {
                 cfd.append('upload_preset', UPLOAD_PRESET);
                 const cr = await fetch(CLOUDINARY_URL, { method: 'POST', body: cfd });
                 const cd = await cr.json();
+                console.log('Cloudinary:', JSON.stringify(cd));
                 if (cd.secure_url) imageUrl = cd.secure_url;
-                else { setMessage('Erreur upload image.'); setMessageType('error'); setLoading(false); return; }
+                else { setMessage('Erreur upload image: ' + (cd.error?.message || 'inconnu')); setMessageType('error'); setLoading(false); return; }
             }
+            console.log('imageUrl envoyée:', imageUrl);
             const fd = new FormData();
             fd.append('title', title.trim());
             if (professor.trim()) fd.append('professor', professor.trim());
@@ -60,6 +62,7 @@ export default function EditCourseScreen() {
             if (imageUrl) fd.append('image_url', imageUrl);
             const r = await fetch(`${API_URL}/courses/${id}`, { method: 'PUT', body: fd });
             const d = await r.json();
+            console.log('Serveur réponse:', JSON.stringify(d));
             if (d.success) { setMessage('✅ Cours modifié !'); setMessageType('success'); setTimeout(() => router.back(), 800); }
             else { setMessage(d.message || 'Erreur.'); setMessageType('error'); }
         } catch (e) { setMessage('Erreur: ' + e.message); setMessageType('error'); }
