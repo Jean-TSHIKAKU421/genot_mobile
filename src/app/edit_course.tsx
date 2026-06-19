@@ -6,6 +6,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 
 const API_URL = 'https://jtt.alwaysdata.net/api';
+const CLOUDINARY_URL = 'https://api.cloudinary.com/v1_1/dfosclwrp/image/upload';
+const UPLOAD_PRESET = 'genotApp';
 
 export default function EditCourseScreen() {
     const { id } = useLocalSearchParams();
@@ -26,9 +28,7 @@ export default function EditCourseScreen() {
     const isDark = theme === 'dark';
     const colors = { bg: isDark ? '#020617' : '#f0f2f5', card: isDark ? '#0f172a' : '#ffffff', text: isDark ? '#f1f5f9' : '#1a1a2e', textSec: isDark ? '#94a3b8' : '#64748b', border: isDark ? 'rgba(99,102,241,0.2)' : '#e2e8f0', inputBg: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc', primary: '#6366f1', danger: '#ef4444', success: '#10b981' };
 
-    const loadCourse = async () => {
-        try { const r = await fetch(`${API_URL}/course/${id}`); const d = await r.json(); if (d.success) { setTitle(d.course.title); setProfessor(d.course.professor || ''); setDescription(d.course.description || ''); setCurrentImage(d.course.image_url || ''); } } catch (e) {}
-    };
+    const loadCourse = async () => { try { const r = await fetch(`${API_URL}/course/${id}`); const d = await r.json(); if (d.success) { setTitle(d.course.title); setProfessor(d.course.professor || ''); setDescription(d.course.description || ''); setCurrentImage(d.course.image_url || ''); } } catch (e) {} };
 
     const pickImage = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -42,18 +42,15 @@ export default function EditCourseScreen() {
         setLoading(true); setMessage('');
         try {
             let imageUrl = currentImage;
-            // Upload nouvelle image si changée
             if (newImage) {
-                const imgFd = new FormData();
-                const ext = newImage.uri.split('.').pop() || 'jpg';
-                imgFd.append('image', { uri: newImage.uri, type: `image/${ext === 'png' ? 'png' : 'jpeg'}`, name: `img-${Date.now()}.${ext}` } as any);
-                imgFd.append('user_matricule', user.matricule);
-                const imgR = await fetch(`${API_URL}/upload-image`, { method: 'POST', body: imgFd });
-                const imgD = await imgR.json();
-                if (!imgD.success) { setMessage('Erreur upload image.'); setMessageType('error'); setLoading(false); return; }
-                imageUrl = imgD.url;
+                const cfd = new FormData();
+                cfd.append('file', { uri: newImage.uri, type: 'image/jpeg', name: 'upload.jpg' } as any);
+                cfd.append('upload_preset', UPLOAD_PRESET);
+                const cr = await fetch(CLOUDINARY_URL, { method: 'POST', body: cfd });
+                const cd = await cr.json();
+                if (cd.secure_url) imageUrl = cd.secure_url;
+                else { setMessage('Erreur upload image.'); setMessageType('error'); setLoading(false); return; }
             }
-            // Mettre à jour le cours
             const fd = new FormData();
             fd.append('title', title.trim());
             if (professor.trim()) fd.append('professor', professor.trim());
@@ -80,46 +77,26 @@ export default function EditCourseScreen() {
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                 <TouchableOpacity onPress={pickImage} style={[styles.imagePicker, { backgroundColor: colors.inputBg, borderColor: colors.border }]} activeOpacity={0.7}>
                     {newImage ? (
-                        <View style={styles.imagePreviewContainer}>
-                            <Image source={{ uri: newImage.uri }} style={styles.previewImage} />
-                            <TouchableOpacity style={styles.removeImageBtn} onPress={() => setNewImage(null)}><FontAwesome5 name="times-circle" size={24} color={colors.danger} /></TouchableOpacity>
-                        </View>
+                        <View style={styles.imagePreviewContainer}><Image source={{ uri: newImage.uri }} style={styles.previewImage} /><TouchableOpacity style={styles.removeImageBtn} onPress={() => setNewImage(null)}><FontAwesome5 name="times-circle" size={24} color={colors.danger} /></TouchableOpacity></View>
                     ) : currentImage ? (
-                        <View style={styles.imagePreviewContainer}>
-                            <Image source={{ uri: API_URL.replace('/api', '') + currentImage }} style={styles.previewImage} />
-                            <TouchableOpacity style={styles.removeImageBtn} onPress={() => { setCurrentImage(''); setNewImage(null); }}><FontAwesome5 name="times-circle" size={24} color={colors.danger} /></TouchableOpacity>
-                        </View>
+                        <View style={styles.imagePreviewContainer}><Image source={{ uri: currentImage }} style={styles.previewImage} /><TouchableOpacity style={styles.removeImageBtn} onPress={() => { setCurrentImage(''); setNewImage(null); }}><FontAwesome5 name="times-circle" size={24} color={colors.danger} /></TouchableOpacity></View>
                     ) : (
-                        <View style={styles.imagePlaceholder}>
-                            <FontAwesome5 name="image" size={40} color={colors.textSec} />
-                            <Text style={[styles.imagePickerText, { color: colors.textSec }]}>Ajouter une image de couverture</Text>
-                            <Text style={[styles.imagePickerSubtext, { color: colors.textSec }]}>Format 16:9 • Max 5 Mo</Text>
-                        </View>
+                        <View style={styles.imagePlaceholder}><FontAwesome5 name="image" size={40} color={colors.textSec} /><Text style={[styles.imagePickerText, { color: colors.textSec }]}>Ajouter une image de couverture</Text></View>
                     )}
                 </TouchableOpacity>
 
                 <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                     <View style={styles.formGroup}>
                         <Text style={[styles.label, { color: colors.text }]}>Titre du cours <Text style={{ color: '#ef4444' }}>*</Text></Text>
-                        <View style={[styles.inputWrapper, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
-                            <FontAwesome5 name="book" size={14} color={colors.textSec} style={styles.inputIcon} />
-                            <TextInput style={[styles.input, { color: colors.text }]} placeholder="Titre du cours" placeholderTextColor={colors.textSec} value={title} onChangeText={setTitle} maxLength={100} />
-                        </View>
+                        <View style={[styles.inputWrapper, { backgroundColor: colors.inputBg, borderColor: colors.border }]}><FontAwesome5 name="book" size={14} color={colors.textSec} style={styles.inputIcon} /><TextInput style={[styles.input, { color: colors.text }]} placeholder="Titre du cours" placeholderTextColor={colors.textSec} value={title} onChangeText={setTitle} maxLength={100} /></View>
                     </View>
-
                     <View style={styles.formGroup}>
                         <Text style={[styles.label, { color: colors.text }]}>Professeur <Text style={{ color: '#64748b', fontSize: 11 }}>(optionnel)</Text></Text>
-                        <View style={[styles.inputWrapper, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
-                            <FontAwesome5 name="user-tie" size={14} color={colors.textSec} style={styles.inputIcon} />
-                            <TextInput style={[styles.input, { color: colors.text }]} placeholder="Nom du professeur" placeholderTextColor={colors.textSec} value={professor} onChangeText={setProfessor} />
-                        </View>
+                        <View style={[styles.inputWrapper, { backgroundColor: colors.inputBg, borderColor: colors.border }]}><FontAwesome5 name="user-tie" size={14} color={colors.textSec} style={styles.inputIcon} /><TextInput style={[styles.input, { color: colors.text }]} placeholder="Nom du professeur" placeholderTextColor={colors.textSec} value={professor} onChangeText={setProfessor} /></View>
                     </View>
-
                     <View style={styles.formGroup}>
                         <Text style={[styles.label, { color: colors.text }]}>Description <Text style={{ color: '#64748b', fontSize: 11 }}>(optionnel)</Text></Text>
-                        <View style={[styles.textareaWrapper, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
-                            <TextInput style={[styles.textarea, { color: colors.text }]} placeholder="Description du cours..." placeholderTextColor={colors.textSec} value={description} onChangeText={setDescription} multiline numberOfLines={4} textAlignVertical="top" maxLength={500} />
-                        </View>
+                        <View style={[styles.textareaWrapper, { backgroundColor: colors.inputBg, borderColor: colors.border }]}><TextInput style={[styles.textarea, { color: colors.text }]} placeholder="Description du cours..." placeholderTextColor={colors.textSec} value={description} onChangeText={setDescription} multiline numberOfLines={4} textAlignVertical="top" maxLength={500} /></View>
                         <Text style={[styles.charCount, { color: colors.textSec }]}>{description.length}/500</Text>
                     </View>
                 </View>
@@ -129,7 +106,6 @@ export default function EditCourseScreen() {
                 <TouchableOpacity style={[styles.submitBtn, { backgroundColor: colors.primary }]} onPress={handleSave} disabled={loading} activeOpacity={0.8}>
                     {loading ? <ActivityIndicator color="#fff" /> : <View style={styles.submitBtnContent}><FontAwesome5 name="save" size={16} color="#fff" /><Text style={styles.submitBtnText}> Enregistrer</Text></View>}
                 </TouchableOpacity>
-
                 <TouchableOpacity style={[styles.cancelBtn, { borderColor: colors.border }]} onPress={() => router.back()}><Text style={[styles.cancelBtnText, { color: colors.textSec }]}>Annuler</Text></TouchableOpacity>
             </ScrollView>
         </View>
@@ -148,7 +124,6 @@ const styles = StyleSheet.create({
     removeImageBtn: { position: 'absolute', top: 10, right: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 12, padding: 4 },
     imagePlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
     imagePickerText: { fontSize: 14, fontWeight: '600', marginTop: 10 },
-    imagePickerSubtext: { fontSize: 11, marginTop: 4 },
     formCard: { borderRadius: 20, padding: 20, borderWidth: 1, marginBottom: 20 },
     formGroup: { marginBottom: 18 },
     label: { fontSize: 13, fontWeight: '600', marginBottom: 8 },
