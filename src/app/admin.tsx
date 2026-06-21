@@ -1,3 +1,6 @@
+// ==========================================
+// admin.tsx
+// ==========================================
 import { useState, useCallback, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, ActivityIndicator, Alert } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
@@ -19,24 +22,9 @@ export default function AdminScreen() {
 
     useFocusEffect(useCallback(() => { loadStats(); }, []));
 
-    const loadStats = async () => {
-        try { const r = await fetch(`${API_URL}/admin/stats`); const d = await r.json(); if (d.success && d.stats) setStats(d.stats); }
-        catch (e) { Alert.alert('Erreur', 'Échec de connexion.'); }
-        setReady(true);
-    };
-
-    const loadVisits = async () => {
-        try { const r = await fetch(`${API_URL}/admin/visits`); const d = await r.json(); if (d.success) setVisits(d); }
-        catch (e) {}
-    };
-
-    const executeSQL = async () => {
-        if (!sqlQuery.trim()) return;
-        setLoading(true); setSqlError(''); setSqlResult(null);
-        try { const r = await fetch(`${API_URL}/admin/sql`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: sqlQuery }) }); const d = await r.json(); if (d.success) setSqlResult(d); else setSqlError(d.message); }
-        catch (e) { setSqlError('Erreur de connexion.'); }
-        setLoading(false);
-    };
+    const loadStats = async () => { try { const r = await fetch(`${API_URL}/admin/stats`); const d = await r.json(); if (d.success && d.stats) setStats(d.stats); } catch (e) { Alert.alert('Erreur', 'Échec de connexion.'); } setReady(true); };
+    const loadVisits = async () => { try { const r = await fetch(`${API_URL}/admin/visits`); const d = await r.json(); if (d.success) setVisits(d); } catch (e) {} };
+    const executeSQL = async () => { if (!sqlQuery.trim()) return; setLoading(true); setSqlError(''); setSqlResult(null); try { const r = await fetch(`${API_URL}/admin/sql`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: sqlQuery }) }); const d = await r.json(); if (d.success) setSqlResult(d); else setSqlError(d.message); } catch (e) { setSqlError('Erreur de connexion.'); } setLoading(false); };
 
     if (!ready) return <View style={[styles.container, { backgroundColor: colors.bg }]}><ActivityIndicator color={colors.primary} style={{ marginTop: 100 }} /></View>;
 
@@ -71,9 +59,9 @@ export default function AdminScreen() {
             {activeTab === 'visits' && visits && (
                 <ScrollView contentContainerStyle={styles.content}>
                     <View style={styles.statsRow}>
-                        <View style={[styles.statBox, { flex: 1, borderColor: colors.primary }]}><Text style={[styles.statNum, { color: colors.primary }]}>{visits.total}</Text><Text style={styles.statLab}>Total</Text></View>
-                        <View style={[styles.statBox, { flex: 1, borderColor: colors.success }]}><Text style={[styles.statNum, { color: colors.success }]}>{visits.today}</Text><Text style={styles.statLab}>Aujourd'hui</Text></View>
-                        <View style={[styles.statBox, { flex: 1, borderColor: colors.warning }]}><Text style={[styles.statNum, { color: colors.warning }]}>{visits.week}</Text><Text style={styles.statLab}>7 jours</Text></View>
+                        <View style={[styles.statBox2, { borderColor: colors.primary }]}><Text style={[styles.statNum, { color: colors.primary }]}>{visits.total}</Text><Text style={styles.statLab}>Total</Text></View>
+                        <View style={[styles.statBox2, { borderColor: colors.success }]}><Text style={[styles.statNum, { color: colors.success }]}>{visits.today}</Text><Text style={styles.statLab}>Aujourd'hui</Text></View>
+                        <View style={[styles.statBox2, { borderColor: colors.warning }]}><Text style={[styles.statNum, { color: colors.warning }]}>{visits.week}</Text><Text style={styles.statLab}>7 jours</Text></View>
                     </View>
 
                     <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 24 }]}>📱 Plateformes</Text>
@@ -101,21 +89,24 @@ export default function AdminScreen() {
                     </View>
 
                     <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 24 }]}>📅 30 derniers jours</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                        <View style={{ flexDirection: 'row', gap: 4, height: 130, alignItems: 'flex-end', paddingBottom: 20 }}>
-                            {visits.daily?.map((d, i) => {
-                                const maxCount = Math.max(...(visits.daily?.map(x => x.count) || [1]));
-                                const height = maxCount > 0 ? (d.count / maxCount) * 80 : 0;
-                                return (
-                                    <View key={i} style={{ alignItems: 'center', width: 30 }}>
-                                        <Text style={{ color: colors.textSec, fontSize: 9 }}>{d.count}</Text>
-                                        <View style={{ width: 22, height: Math.max(height, 2), backgroundColor: colors.primary, borderRadius: 4, marginTop: 4 }} />
-                                        <Text style={{ color: colors.textSec, fontSize: 8, marginTop: 4 }}>{d.date?.substring(5)}</Text>
-                                    </View>
-                                );
-                            })}
-                        </View>
-                    </ScrollView>
+                    <View style={[styles.calendarCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                            <View style={{ flexDirection: 'row', gap: 4, paddingVertical: 12 }}>
+                                {visits.daily?.map((d, i) => {
+                                    const maxCount = Math.max(...(visits.daily?.map(x => x.count) || [1]));
+                                    const height = maxCount > 0 ? (d.count / maxCount) * 120 : 4;
+                                    const displayDate = d.date ? new Date(d.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) : '';
+                                    return (
+                                        <View key={i} style={{ alignItems: 'center', minWidth: 36 }}>
+                                            <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 12, marginBottom: 4 }}>{d.count}</Text>
+                                            <View style={{ width: 28, height: Math.max(height, 4), backgroundColor: colors.primary, borderRadius: 6, opacity: height > 10 ? 1 : 0.5 }} />
+                                            <Text style={{ color: colors.textSec, fontSize: 9, marginTop: 6, transform: [{ rotate: '-45deg' }], width: 40, textAlign: 'right' }}>{displayDate}</Text>
+                                        </View>
+                                    );
+                                })}
+                            </View>
+                        </ScrollView>
+                    </View>
                 </ScrollView>
             )}
 
@@ -148,9 +139,11 @@ const styles = StyleSheet.create({
     statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
     statsRow: { flexDirection: 'row', gap: 10, marginBottom: 4 },
     statBox: { width: '30%', borderRadius: 16, padding: 20, alignItems: 'center', borderWidth: 2 },
+    statBox2: { flex: 1, borderRadius: 16, padding: 20, alignItems: 'center', borderWidth: 2 },
     statNum: { fontSize: 28, fontWeight: '800' },
     statLab: { color: '#94a3b8', fontSize: 12, marginTop: 4 },
     sectionTitle: { fontSize: 15, fontWeight: '700', marginBottom: 12 },
+    calendarCard: { borderRadius: 20, padding: 12, borderWidth: 1, marginBottom: 16 },
     sqlInput: { borderWidth: 2, borderRadius: 12, padding: 14, fontSize: 13, fontFamily: 'monospace', minHeight: 100, marginBottom: 10 },
     sqlBtn: { padding: 14, borderRadius: 12, alignItems: 'center' },
 });
