@@ -11,6 +11,23 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { WebView } from 'react-native-webview';
 const API_URL='https://jtt.alwaysdata.net/api';const CL_URL='https://api.cloudinary.com/v1_1/dfosclwrp/auto/upload';const CL_UP='genotApp';
+
+const uploadWithXHR = (uri, folder, publicId) => {
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', CL_URL);
+        const fd = new FormData();
+        fd.append('file', { uri, type: 'application/octet-stream', name: 'upload' } as any);
+        fd.append('upload_preset', CL_UP);
+        fd.append('resource_type', 'auto');
+        if (folder) fd.append('folder', folder);
+        if (publicId) fd.append('public_id', publicId);
+        xhr.onload = () => { try { const cd = JSON.parse(xhr.responseText); resolve(cd.secure_url || null); } catch(e) { resolve(null); } };
+        xhr.onerror = () => reject(new Error('XHR failed'));
+        xhr.send(fd);
+    });
+};
+
 export default function CourseScreen(){
     const {id}=useLocalSearchParams();
     const [co,sco]=useState(null);const [nt,snt]=useState([]);const [ct,sct]=useState('supports');const [st2,sst2]=useState('');
@@ -31,7 +48,7 @@ export default function CourseScreen(){
     const openPdf=(url)=>{spdfUrl(url);spdfVisible(true)};
     const downloadFile=async(url,filename)=>{sdlVisible(true);sdlProgress(0);sdlMsg('Téléchargement...');try{const u=FileSystem.documentDirectory+(filename||'doc.pdf');const dr=FileSystem.createDownloadResumable(url,u,{},(p)=>{const pct=Math.round((p.totalBytesWritten/p.totalBytesExpectedToWrite)*100);sdlProgress(pct)});const r=await dr.downloadAsync();if(r&&r.uri){sdlMsg('Terminé !');setTimeout(()=>{sdlVisible(false);sdlProgress(0);sdlMsg('')},1500);if(await Sharing.isAvailableAsync())await Sharing.shareAsync(r.uri);else Alert.alert('Succès','Fichier téléchargé.')}}catch(e){sdlVisible(false);sdlProgress(0);sdlMsg('');Alert.alert('Erreur','Échec du téléchargement.')}};
     const handlePickDoc=async()=>{try{const r=await DocumentPicker.getDocumentAsync({type:['application/pdf','image/*','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','text/plain']});if(!r.canceled&&r.assets?.length>0)spf(r.assets[0])}catch(e){}};
-    const submitPdf=async()=>{if(!pt.trim()||!pf){smsg('Titre et fichier requis.');smty('error');return}smsg('Upload en cours...');smty('info');try{const cfd=new FormData();cfd.append('file',{uri:pf.uri,type:pf.mimeType||'application/pdf',name:pf.name}as any);cfd.append('upload_preset',CL_UP);cfd.append('resource_type','auto');const cr=await fetch(CL_URL,{method:'POST',body:cfd});const cd=await cr.json();if(cd.secure_url){const r=await fetch(`${API_URL}/notes`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({course_id:id,title:pt,content:cd.original_filename||pt,file_url:cd.secure_url,type:'support'})});const d=await r.json();if(d.success){sav(false);resetAdd();ld()}else{smsg(d.message);smty('error')}}else{smsg('Erreur upload: '+(cd.error?.message||'inconnue'));smty('error')}}catch(e){smsg('Erreur connexion.');smty('error')}};
+    const submitPdf=async()=>{if(!pt.trim()||!pf){smsg('Titre et fichier requis.');smty('error');return}smsg('Upload en cours...');smty('info');try{const url=await uploadWithXHR(pf.uri,'documents',null);if(url){const r=await fetch(`${API_URL}/notes`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({course_id:id,title:pt,content:pf.name,file_url:url,type:'support'})});const d=await r.json();if(d.success){sav(false);resetAdd();ld()}else{smsg(d.message);smty('error')}}else{smsg('Erreur upload');smty('error')}}catch(e){smsg('Erreur connexion: '+e.message);smty('error')}};
     const submitLink=async()=>{if(!lt.trim()||!lu.trim()){smsg('Titre et URL requis.');smty('error');return}try{const r=await fetch(`${API_URL}/notes`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({course_id:id,title:lt,content:lu,type:'link'})});const d=await r.json();if(d.success){sav(false);resetAdd();ld()}else{smsg(d.message);smty('error')}}catch(e){smsg('Erreur.');smty('error')}};
     const saveNote=async()=>{if(!nti.trim()||!nco.trim()){Alert.alert('Erreur','Titre et contenu requis.');return}try{const r=await fetch(`${API_URL}/notes`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({course_id:id,title:nti,content:nco,type:'note'})});const d=await r.json();if(d.success){snv(false);snti('');snco('');sav(false);resetAdd();ld()}else Alert.alert('Erreur',d.message)}catch(e){Alert.alert('Erreur','Impossible de sauvegarder.')}};
     const openEditNote=(note)=>{seid(note.id);seti(note.title);seco(note.content||'');sev(true)};

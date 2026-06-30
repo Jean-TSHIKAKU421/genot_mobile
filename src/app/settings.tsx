@@ -8,11 +8,25 @@ import { FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system/legacy';
 
 const API_URL = 'https://jtt.alwaysdata.net/api';
 const CL_URL = 'https://api.cloudinary.com/v1_1/dfosclwrp/image/upload';
 const CL_UP = 'genotApp';
+
+const uploadWithXHR = (uri, folder, publicId) => {
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', CL_URL);
+        const fd = new FormData();
+        fd.append('file', { uri, type: 'image/jpeg', name: 'upload.jpg' } as any);
+        fd.append('upload_preset', CL_UP);
+        fd.append('folder', folder);
+        if (publicId) fd.append('public_id', publicId);
+        xhr.onload = () => { try { const cd = JSON.parse(xhr.responseText); resolve(cd.secure_url || null); } catch(e) { resolve(null); } };
+        xhr.onerror = () => reject(new Error('XHR failed'));
+        xhr.send(fd);
+    });
+};
 
 export default function SettingsScreen() {
     const [u,su] = useState(null); const [st,sst] = useState({c:0,n:0,p:0,l:0}); const [on,son] = useState(false); const [th,sth] = useState('dark');
@@ -24,7 +38,7 @@ export default function SettingsScreen() {
     const lo=async()=>{await AsyncStorage.removeItem('currentUser');router.replace('/')};
     const oe=(t,v)=>{set(t);sev(v||'');sem(true)};
     const se=async()=>{try{const r=await fetch(`${API_URL}/update-profile/${u.matricule}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({[et]:ev})});const d=await r.json();if(d.success){su(d.user);await AsyncStorage.setItem('currentUser',JSON.stringify(d.user))}else Alert.alert('Erreur',d.message)}catch(e){Alert.alert('Erreur','Impossible de modifier.')}sem(false)};
-    const pi=async()=>{const r=await ImagePicker.launchImageLibraryAsync({mediaTypes:['images'],allowsEditing:true,aspect:[1,1],quality:0.7});if(!r.canceled){try{const up=await FileSystem.uploadAsync(CL_URL,r.assets[0].uri,{httpMethod:'POST',uploadType:FileSystem.FileSystemUploadType.MULTIPART,fieldName:'file',parameters:{upload_preset:CL_UP,folder:'profiles',public_id:`profile-${u.matricule}`,overwrite:'true'}});const cd=JSON.parse(up.body);if(cd.secure_url){const rr=await fetch(`${API_URL}/update-profile/${u.matricule}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({photo:cd.secure_url})});const dd=await rr.json();if(dd.success){const up2={...u,photo:cd.secure_url};su(up2);await AsyncStorage.setItem('currentUser',JSON.stringify(up2))}else Alert.alert('Erreur',dd.message)}else Alert.alert('Erreur','Échec upload')}catch(e){Alert.alert('Erreur','Impossible upload')}}};
+    const pi=async()=>{const r=await ImagePicker.launchImageLibraryAsync({mediaTypes:['images'],allowsEditing:true,aspect:[1,1],quality:0.7});if(!r.canceled){try{const url=await uploadWithXHR(r.assets[0].uri,'profiles',`profile-${u.matricule}`);if(url){const rr=await fetch(`${API_URL}/update-profile/${u.matricule}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({photo:url})});const dd=await rr.json();if(dd.success){const up2={...u,photo:url};su(up2);await AsyncStorage.setItem('currentUser',JSON.stringify(up2))}else Alert.alert('Erreur',dd.message)}else Alert.alert('Erreur','Échec upload')}catch(e){Alert.alert('Erreur','Impossible upload: '+e.message)}}};
     if(!u)return<View style={[ss.ct,{backgroundColor:cl.bg}]}><Text style={{color:cl.tx,textAlign:'center',marginTop:100}}>Chargement...</Text></View>;
     return(
         <View style={[ss.ct,{backgroundColor:cl.bg}]}>

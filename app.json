@@ -25,6 +25,7 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.GeNotApp",
       "permissions": [
+        "android.permission.RECORD_AUDIO",
         "android.permission.RECORD_AUDIO"
       ]
     },
@@ -63,6 +64,12 @@
       "eas": {
         "projectId": "089b7c21-6e56-4f02-afa6-b9331554506d"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/089b7c21-6e56-4f02-afa6-b9331554506d"
     }
   }
 }
