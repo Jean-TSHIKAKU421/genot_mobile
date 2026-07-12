@@ -42,6 +42,7 @@ export default function Layout() {
                 <Stack.Screen name="add_course" options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
                 <Stack.Screen name="edit_course" options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
                 <Stack.Screen name="trash" options={{ animation: 'fade' }} />
+                <Stack.Screen name="vault" options={{ animation: 'slide_from_right' }} />
                 <Stack.Screen name="admin" options={{ animation: 'slide_from_left', gestureEnabled: false }} />
             </Stack>
         </ThemeProvider>
