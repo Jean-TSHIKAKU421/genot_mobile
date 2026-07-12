@@ -2,7 +2,7 @@
 // vault.tsx
 // ==========================================
 import { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Alert, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, Alert, FlatList } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect } from 'expo-router';
@@ -23,13 +23,10 @@ export default function VaultScreen() {
     if (locked) {
         return (
             <View style={[ss.ct, { backgroundColor: cl.bg, justifyContent: 'center', alignItems: 'center', padding: 30 }]}>
-                <FontAwesome5 name="vault" size={60} color={cl.pr} style={{ marginBottom: 20 }} />
+                <FontAwesome5 name="lock" size={60} color={cl.pr} style={{ marginBottom: 20 }} />
                 <Text style={{ color: cl.tx, fontSize: 22, fontWeight: '700', marginBottom: 8 }}>Coffre-fort</Text>
                 <Text style={{ color: cl.ts, fontSize: 14, marginBottom: 24, textAlign: 'center' }}>Entrez votre mot de passe pour accéder au coffre-fort</Text>
-                <View style={[ss.pw, { backgroundColor: cl.ib, borderColor: cl.bd }]}>
-                    <FontAwesome5 name="lock" size={16} color={cl.ts} style={{ marginRight: 10 }} />
-                    <TextInput style={{ flex: 1, color: cl.tx, fontSize: 15 }} placeholder="Mot de passe" placeholderTextColor={cl.ts} value={pass} onChangeText={spass} secureTextEntry onSubmitEditing={unlock} />
-                </View>
+                <View style={[ss.pw, { backgroundColor: cl.ib, borderColor: cl.bd }]}><FontAwesome5 name="lock" size={16} color={cl.ts} style={{ marginRight: 10 }} /><TextInput style={{ flex: 1, color: cl.tx, fontSize: 15 }} placeholder="Mot de passe" placeholderTextColor={cl.ts} value={pass} onChangeText={spass} secureTextEntry onSubmitEditing={unlock} /></View>
                 <TouchableOpacity style={[ss.btn, { backgroundColor: cl.pr }]} onPress={unlock}><FontAwesome5 name="unlock" size={16} color="#fff" /><Text style={{ color: '#fff', fontWeight: '600', marginLeft: 8 }}>Déverrouiller</Text></TouchableOpacity>
                 <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 16 }}><Text style={{ color: cl.ts, fontSize: 14 }}>← Retour</Text></TouchableOpacity>
             </View>
@@ -38,37 +35,10 @@ export default function VaultScreen() {
 
     return (
         <View style={[ss.ct, { backgroundColor: cl.bg }]}>
-            <View style={[ss.hd, { backgroundColor: cl.cd, borderBottomColor: cl.bd }]}>
-                <TouchableOpacity onPress={() => router.back()} style={ss.hb}><FontAwesome5 name="arrow-left" size={18} color={cl.pr} /></TouchableOpacity>
-                <Text style={[ss.ht, { color: cl.tx }]}>🔒 Coffre-fort</Text>
-                <View style={ss.hb} />
-            </View>
-            <View style={ss.tabs}>
-                <TouchableOpacity style={[ss.tab, tab === 'courses' && { backgroundColor: cl.pr }]} onPress={() => stab('courses')}><Text style={[ss.tt, { color: tab === 'courses' ? '#fff' : cl.ts }]}>📚 Cours ({courses.length})</Text></TouchableOpacity>
-                <TouchableOpacity style={[ss.tab, tab === 'data' && { backgroundColor: cl.pr }]} onPress={() => stab('data')}><Text style={[ss.tt, { color: tab === 'data' ? '#fff' : cl.ts }]}>📄 Données ({notes.length})</Text></TouchableOpacity>
-            </View>
-            {tab === 'courses' && (
-                <FlatList data={courses} keyExtractor={item => 'c' + item.id} contentContainerStyle={ss.ls} renderItem={({ item }) => (
-                    <View style={[ss.item, { backgroundColor: cl.cd, borderColor: cl.bd }]}>
-                        <View style={{ flex: 1 }}><Text style={[ss.it2, { color: cl.tx }]} numberOfLines={1}>📚 {item.title}</Text><Text style={[ss.is2, { color: cl.ts }]}>{item.professor ? 'Prof: ' + item.professor + ' • ' : ''}{new Date(item.created_at).toLocaleDateString('fr-FR')}</Text></View>
-                        <View style={ss.ia2}>
-                            <TouchableOpacity style={[ss.ib2, { backgroundColor: cl.sc }]} onPress={() => restoreItem('course', item.id)}><FontAwesome5 name="undo" size={12} color="#fff" /></TouchableOpacity>
-                            <TouchableOpacity style={[ss.ib2, { backgroundColor: cl.dg }]} onPress={() => deleteItem('course', item.id)}><FontAwesome5 name="trash-alt" size={12} color="#fff" /></TouchableOpacity>
-                        </View>
-                    </View>
-                )} ListEmptyComponent={<View style={ss.em}><Text style={{ color: cl.ts }}>Aucun cours masqué</Text></View>} />
-            )}
-            {tab === 'data' && (
-                <FlatList data={notes} keyExtractor={item => 'n' + item.id} contentContainerStyle={ss.ls} renderItem={({ item }) => (
-                    <View style={[ss.item, { backgroundColor: cl.cd, borderColor: cl.bd }]}>
-                        <View style={{ flex: 1 }}><Text style={[ss.it2, { color: cl.tx }]} numberOfLines={1}>{item.type === 'support' ? '📄' : item.type === 'link' ? '🔗' : '📝'} {item.title}</Text><Text style={[ss.is2, { color: cl.ts }]}>Cours: {item.course_title || 'Inconnu'}</Text></View>
-                        <View style={ss.ia2}>
-                            <TouchableOpacity style={[ss.ib2, { backgroundColor: cl.sc }]} onPress={() => restoreItem('note', item.id)}><FontAwesome5 name="undo" size={12} color="#fff" /></TouchableOpacity>
-                            <TouchableOpacity style={[ss.ib2, { backgroundColor: cl.dg }]} onPress={() => deleteItem('note', item.id)}><FontAwesome5 name="trash-alt" size={12} color="#fff" /></TouchableOpacity>
-                        </View>
-                    </View>
-                )} ListEmptyComponent={<View style={ss.em}><Text style={{ color: cl.ts }}>Aucune donnée masquée</Text></View>} />
-            )}
+            <View style={[ss.hd, { backgroundColor: cl.cd, borderBottomColor: cl.bd }]}><TouchableOpacity onPress={() => router.back()} style={ss.hb}><FontAwesome5 name="arrow-left" size={18} color={cl.pr} /></TouchableOpacity><Text style={[ss.ht, { color: cl.tx }]}>🔒 Coffre-fort</Text><View style={ss.hb} /></View>
+            <View style={ss.tabs}><TouchableOpacity style={[ss.tab, tab === 'courses' && { backgroundColor: cl.pr }]} onPress={() => stab('courses')}><Text style={[ss.tt, { color: tab === 'courses' ? '#fff' : cl.ts }]}>📚 Cours ({courses.length})</Text></TouchableOpacity><TouchableOpacity style={[ss.tab, tab === 'data' && { backgroundColor: cl.pr }]} onPress={() => stab('data')}><Text style={[ss.tt, { color: tab === 'data' ? '#fff' : cl.ts }]}>📄 Données ({notes.length})</Text></TouchableOpacity></View>
+            {tab === 'courses' && (<FlatList data={courses} keyExtractor={item => 'c' + item.id} contentContainerStyle={ss.ls} renderItem={({ item }) => (<View style={[ss.item, { backgroundColor: cl.cd, borderColor: cl.bd }]}><View style={{ flex: 1 }}><Text style={[ss.it2, { color: cl.tx }]} numberOfLines={1}>📚 {item.title}</Text><Text style={[ss.is2, { color: cl.ts }]}>{item.professor ? 'Prof: ' + item.professor + ' • ' : ''}{new Date(item.created_at).toLocaleDateString('fr-FR')}</Text></View><View style={ss.ia2}><TouchableOpacity style={[ss.ib2, { backgroundColor: cl.sc }]} onPress={() => restoreItem('course', item.id)}><FontAwesome5 name="undo" size={12} color="#fff" /></TouchableOpacity><TouchableOpacity style={[ss.ib2, { backgroundColor: cl.dg }]} onPress={() => deleteItem('course', item.id)}><FontAwesome5 name="trash-alt" size={12} color="#fff" /></TouchableOpacity></View></View>)} ListEmptyComponent={<View style={ss.em}><Text style={{ color: cl.ts }}>Aucun cours masqué</Text></View>} />)}
+            {tab === 'data' && (<FlatList data={notes} keyExtractor={item => 'n' + item.id} contentContainerStyle={ss.ls} renderItem={({ item }) => (<View style={[ss.item, { backgroundColor: cl.cd, borderColor: cl.bd }]}><View style={{ flex: 1 }}><Text style={[ss.it2, { color: cl.tx }]} numberOfLines={1}>{item.type === 'support' ? '📄' : item.type === 'link' ? '🔗' : '📝'} {item.title}</Text><Text style={[ss.is2, { color: cl.ts }]}>Cours: {item.course_title || 'Inconnu'}</Text></View><View style={ss.ia2}><TouchableOpacity style={[ss.ib2, { backgroundColor: cl.sc }]} onPress={() => restoreItem('note', item.id)}><FontAwesome5 name="undo" size={12} color="#fff" /></TouchableOpacity><TouchableOpacity style={[ss.ib2, { backgroundColor: cl.dg }]} onPress={() => deleteItem('note', item.id)}><FontAwesome5 name="trash-alt" size={12} color="#fff" /></TouchableOpacity></View></View>)} ListEmptyComponent={<View style={ss.em}><Text style={{ color: cl.ts }}>Aucune donnée masquée</Text></View>} />)}
         </View>
     );
 }

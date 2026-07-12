@@ -66,7 +66,7 @@ export default function SettingsScreen() {
                     <View style={ss.sg}>
                         <Sbx i="book" v={st.c} l="Cours" c={cl}/><Sbx i="sticky-note" v={st.n} l="Notes" c={cl}/><Sbx i="file-pdf" v={st.p} l="PDFs" c={cl}/><Sbx i="link" v={st.l} l="Liens" c={cl}/>
                     </View>
-                    <Text style={[ss.stl,{color:cl.pl,marginTop:8}]}><FontAwesome5 name="vault" size={14} color={cl.pl}/> Coffre-fort</Text>
+                    <Text style={[ss.stl,{color:cl.pl,marginTop:8}]}><FontAwesome5 name="lock" size={14} color={cl.pl}/> Coffre-fort</Text>
                     {vaultActive?(
                         <View>
                             <View style={[ss.ii,{backgroundColor:'rgba(16,185,129,0.1)',borderColor:'rgba(16,185,129,0.3)',marginBottom:8}]}><FontAwesome5 name="shield-alt" size={14} color={cl.sc}/><Text style={[ss.iv,{color:cl.sc}]}>🟢 Coffre-fort actif</Text></View>

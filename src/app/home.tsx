@@ -32,7 +32,7 @@ export default function HomeScreen() {
                     <TouchableOpacity style={[ss.ib,{backgroundColor:cl.ib,borderColor:cl.bd}]} onPress={tt}><FontAwesome5 name={dk?'sun':'moon'} size={18} color={cl.tx}/></TouchableOpacity>
                     <TouchableOpacity style={[ss.ib,{backgroundColor:cl.ib,borderColor:cl.bd}]} onPress={()=>router.push('/settings')}><FontAwesome5 name="cog" size={18} color={cl.tx}/></TouchableOpacity>
                     <TouchableOpacity style={[ss.ib,{backgroundColor:cl.ib,borderColor:cl.bd}]} onPress={()=>router.push('/trash')}><FontAwesome5 name="trash-alt" size={18} color={cl.tx}/></TouchableOpacity>
-                    {vaultActive&&<TouchableOpacity style={[ss.ib,{backgroundColor:cl.ib,borderColor:cl.bd}]} onPress={()=>router.push('/vault')}><FontAwesome5 name="vault" size={18} color={cl.tx}/></TouchableOpacity>}
+                    {vaultActive&&<TouchableOpacity style={[ss.ib,{backgroundColor:cl.ib,borderColor:cl.bd}]} onPress={()=>router.push('/vault')}><FontAwesome5 name="lock" size={18} color={cl.tx}/></TouchableOpacity>}
                     <TouchableOpacity style={[ss.ib,{backgroundColor:cl.ib,borderColor:cl.bd}]} onPress={async()=>{await AsyncStorage.removeItem('currentUser');router.replace('/')}}><FontAwesome5 name="sign-out-alt" size={18} color={cl.tx}/></TouchableOpacity>
                 </View>
             </View>
@@ -43,7 +43,7 @@ export default function HomeScreen() {
                     {item.image_url?<Image source={{uri:item.image_url}} style={ss.ci} contentFit="cover" transition={300} cachePolicy="memory-disk" placeholder={{uri:PH}}/>:<View style={ss.cip}><FontAwesome5 name="book" size={45} color="#fff"/></View>}
                     <View style={ss.cb}><Text style={[ss.ct2,{color:cl.tx}]} numberOfLines={1}>{item.title}</Text><View style={ss.cr}><FontAwesome5 name="user-tie" size={12} color={cl.pr}/><Text style={[ss.cp,{color:cl.ts}]}> {item.professor||'---------'}</Text></View><Text style={[ss.cm,{color:cl.ts}]}>📝 {item.noteCount||0} note(s)</Text><Text style={ss.cd}>📅 {new Date(item.created_at).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}</Text>
                     <View style={ss.ca}>
-                        <TouchableOpacity style={[ss.vis,{backgroundColor:item.hidden?'rgba(239,68,68,0.1)':'rgba(99,102,241,0.1)',borderColor:item.hidden?'rgba(239,68,68,0.3)':'rgba(99,102,241,0.3)'}]} onPress={()=>toggleVis(item.id)}><FontAwesome5 name={item.hidden?'lock':'shield-halved'} size={12} color={item.hidden?cl.dg:cl.pr}/></TouchableOpacity>
+                        <TouchableOpacity style={[ss.vis,{backgroundColor:item.hidden?'rgba(239,68,68,0.1)':'rgba(99,102,241,0.1)',borderColor:item.hidden?'rgba(239,68,68,0.3)':'rgba(99,102,241,0.3)'}]} onPress={()=>toggleVis(item.id)}><FontAwesome5 name={item.hidden?'lock':'shield-alt'} size={12} color={item.hidden?cl.dg:cl.pr}/></TouchableOpacity>
                         <TouchableOpacity style={ss.be} onPress={()=>router.push({pathname:'/course',params:{id:item.id}})}><FontAwesome5 name="eye" size={14} color="#fff"/><Text style={ss.bt}> Voir</Text></TouchableOpacity>
                         <TouchableOpacity style={ss.bed} onPress={()=>router.push({pathname:'/edit_course',params:{id:item.id}})}><FontAwesome5 name="edit" size={16} color={cl.wn}/></TouchableOpacity>
                         <TouchableOpacity style={ss.bdl} onPress={()=>dc(item.id)}><FontAwesome5 name="trash-alt" size={16} color={cl.dg}/></TouchableOpacity>
