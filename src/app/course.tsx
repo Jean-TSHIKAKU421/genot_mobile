@@ -10,7 +10,6 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { WebView } from 'react-native-webview';
-import { Audio } from 'expo-av';
 import ModalConfirm from '../components/ModalConfirm';
 
 const API_URL='https://jtt.alwaysdata.net/api', CL_URL='https://api.cloudinary.com/v1_1/dfosclwrp/auto/upload', CL_UP='genotApp';
@@ -34,16 +33,15 @@ export default function CourseScreen(){
     const [esv,sesv]=useState(false), [esid,sesid]=useState(null), [esti,sesti]=useState(''), [esdesc,sesdesc]=useState('');
     const [th,sth]=useState('dark'), [msg,smsg]=useState(''), [mty,smty]=useState('');
     const [pdfUrl,spdfUrl]=useState(null), [pdfVisible,spdfVisible]=useState(false);
+    const [audioUrl,setAudioUrl]=useState(null), [audioVisible,setAudioVisible]=useState(false), [audioTitle,setAudioTitle]=useState('');
     const [dlProgress,sdlProgress]=useState(0), [dlVisible,sdlVisible]=useState(false), [dlMsg,sdlMsg]=useState('');
     const [vaultActive,svaultActive]=useState(false);
     const [confirmVis,setConfirmVis]=useState(false), [confirmDel,setConfirmDel]=useState(false), [selType,setSelType]=useState(''), [selItemId,setSelItemId]=useState(null), [selHidden,setSelHidden]=useState(false);
     const [readNote,setReadNote]=useState({visible:false,title:'',content:''});
-    // États audio
-    const [audioPlaying,setAudioPlaying]=useState(null), [sound,setSound]=useState(null);
     
     const dk=th==='dark', cl={bg:dk?'#020617':'#f0f2f5', cd:dk?'#0f172a':'#ffffff', tx:dk?'#f1f5f9':'#1a1a2e', ts:dk?'#94a3b8':'#64748b', bd:dk?'rgba(99,102,241,0.2)':'#e2e8f0', ib:dk?'rgba(255,255,255,0.05)':'#f8fafc', pr:'#6366f1', dg:'#ef4444', sc:'#10b981', wn:'#f59e0b', cy:'#06b6d4'};
     
-    useFocusEffect(useCallback(()=>{ld(); return ()=>{if(sound){sound.unloadAsync().catch(()=>{})}}},[id]));
+    useFocusEffect(useCallback(()=>{ld()},[id]));
     
     const ld=async()=>{
         try{
@@ -59,28 +57,17 @@ export default function CourseScreen(){
     const sh=async(title,url)=>{try{await Sharing.shareAsync(url||'',{dialogTitle:title})}catch(e){Alert.alert('Info',url||'Lien copié')}};
     const fn=(type)=>nt.filter(n=>n.type===type&&(!st2||(n.title||'').toLowerCase().includes(st2.toLowerCase())||(n.content||'').toLowerCase().includes(st2.toLowerCase())));
     
-    // Lecteur PDF avec Google Docs Viewer
     const openPdf=(url)=>{
         if(!url) return;
         const googleUrl = `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(url)}`;
         spdfUrl(googleUrl); spdfVisible(true);
     };
     
-    // Lecteur audio
-    const playAudio=async(item)=>{
+    const playAudio=(item)=>{
         if(!item.file_url) return;
-        if(audioPlaying===item.id){
-            if(sound){await sound.pauseAsync(); setAudioPlaying(null)}
-            return;
-        }
-        if(sound){await sound.unloadAsync(); setSound(null)}
-        try{
-            const {sound:newSound}=await Audio.Sound.createAsync({uri:item.file_url},{shouldPlay:true});
-            setSound(newSound); setAudioPlaying(item.id);
-            newSound.setOnPlaybackStatusUpdate((status)=>{
-                if(status.isLoaded && status.didJustFinish){setAudioPlaying(null); setSound(null)}
-            });
-        }catch(e){Alert.alert('Erreur','Impossible de lire cet audio.')}
+        setAudioTitle(item.title||'Audio');
+        setAudioUrl(item.file_url);
+        setAudioVisible(true);
     };
     
     const downloadFile=async(url,filename)=>{
@@ -115,7 +102,7 @@ export default function CourseScreen(){
         {key:'supports',label:'📄 Supports',data:fn('support'),render:({item})=>(<View style={[ss.ic,{backgroundColor:cl.cd,borderColor:cl.bd}]}><TouchableOpacity style={{flex:1,flexDirection:'row',alignItems:'center',gap:10}} onPress={()=>item.file_url?openPdf(item.file_url):null}><View style={[ss.ii2,{backgroundColor:'rgba(239,68,68,0.1)'}]}><FontAwesome5 name="file-pdf" size={18} color={cl.dg}/></View><View style={ss.if}><Text style={[ss.it,{color:cl.tx}]} numberOfLines={1}>{item.title}</Text><Text style={[ss.is,{color:cl.ts}]} numberOfLines={1}>{item.content||'Document'}</Text></View></TouchableOpacity><View style={ss.ia}><TouchableOpacity onPress={()=>toggleVis('note',item)} style={ss.ibn}><FontAwesome5 name={item.hidden?'lock':'shield-alt'} size={16} color={item.hidden?cl.dg:cl.pr}/></TouchableOpacity><TouchableOpacity onPress={()=>openEditSupport(item)} style={ss.ibn}><FontAwesome5 name="edit" size={16} color={cl.wn}/></TouchableOpacity><TouchableOpacity onPress={()=>di(item.id)} style={ss.ibn}><FontAwesome5 name="trash-alt" size={16} color={cl.ts}/></TouchableOpacity>{item.file_url?<TouchableOpacity onPress={()=>downloadFile(item.file_url,item.title+'.pdf')} style={ss.ibn}><FontAwesome5 name="download" size={16} color={cl.sc}/></TouchableOpacity>:null}</View></View>)},
         {key:'links',label:'🔗 Liens',data:fn('link'),render:({item})=>(<View style={[ss.ic,{backgroundColor:cl.cd,borderColor:cl.bd}]}><View style={{flex:1,flexDirection:'row',alignItems:'center',gap:10}}><View style={[ss.ii2,{backgroundColor:'rgba(6,182,212,0.1)'}]}><FontAwesome5 name="link" size={18} color={cl.cy}/></View><View style={ss.if}><Text style={[ss.it,{color:cl.tx}]} numberOfLines={1}>{item.title}</Text><Text style={[ss.is,{color:cl.pr}]} numberOfLines={1}>{item.content||'#'}</Text></View></View><View style={ss.ia}><TouchableOpacity onPress={()=>toggleVis('note',item)} style={ss.ibn}><FontAwesome5 name={item.hidden?'lock':'shield-alt'} size={16} color={item.hidden?cl.dg:cl.pr}/></TouchableOpacity><TouchableOpacity onPress={()=>di(item.id)} style={ss.ibn}><FontAwesome5 name="trash-alt" size={16} color={cl.ts}/></TouchableOpacity><TouchableOpacity onPress={()=>Linking.openURL(item.content.startsWith('http')?item.content:'https://'+item.content)} style={ss.ibn}><FontAwesome5 name="external-link-alt" size={16} color={cl.sc}/></TouchableOpacity></View></View>)},
         {key:'notes',label:'📝 Notes',data:fn('note'),render:({item})=>(<View style={[ss.ic,{backgroundColor:cl.cd,borderColor:cl.bd,borderLeftWidth:3,borderLeftColor:cl.pr}]}><View style={{flex:1,flexDirection:'row',alignItems:'center',gap:10}}><View style={[ss.ii2,{backgroundColor:'rgba(16,185,129,0.1)'}]}><FontAwesome5 name="sticky-note" size={18} color={cl.sc}/></View><View style={ss.if}><Text style={[ss.it,{color:cl.tx}]} numberOfLines={1}>{item.title}</Text><Text style={[ss.is,{color:cl.ts}]} numberOfLines={2}>{item.content?.replace(/<[^>]*>/g,'').substring(0,80)||'Note vide'}</Text></View></View><View style={ss.ia}><TouchableOpacity onPress={()=>toggleVis('note',item)} style={ss.ibn}><FontAwesome5 name={item.hidden?'lock':'shield-alt'} size={16} color={item.hidden?cl.dg:cl.pr}/></TouchableOpacity><TouchableOpacity onPress={()=>openEditNote(item)} style={ss.ibn}><FontAwesome5 name="edit" size={16} color={cl.wn}/></TouchableOpacity><TouchableOpacity onPress={()=>di(item.id)} style={ss.ibn}><FontAwesome5 name="trash-alt" size={16} color={cl.ts}/></TouchableOpacity><TouchableOpacity onPress={()=>{setReadNote({visible:true,title:item.title,content:item.content?.replace(/<[^>]*>/g,'')||''})}} style={ss.ibn}><FontAwesome5 name="eye" size={16} color={cl.ts}/></TouchableOpacity></View></View>)},
-        {key:'audios',label:'🎙️ Audios',data:fn('audio'),render:({item})=>(<View style={[ss.ic,{backgroundColor:cl.cd,borderColor:cl.bd}]}><View style={{flex:1,flexDirection:'row',alignItems:'center',gap:10}}><View style={[ss.ii2,{backgroundColor:'rgba(168,85,247,0.1)'}]}><FontAwesome5 name="microphone" size={18} color="#a855f7"/></View><View style={ss.if}><Text style={[ss.it,{color:cl.tx}]} numberOfLines={1}>{item.title}</Text><Text style={[ss.is,{color:cl.ts}]} numberOfLines={1}>{item.content||'Audio'}</Text></View></View><View style={ss.ia}><TouchableOpacity onPress={()=>toggleVis('note',item)} style={ss.ibn}><FontAwesome5 name={item.hidden?'lock':'shield-alt'} size={16} color={item.hidden?cl.dg:cl.pr}/></TouchableOpacity><TouchableOpacity onPress={()=>di(item.id)} style={ss.ibn}><FontAwesome5 name="trash-alt" size={16} color={cl.ts}/></TouchableOpacity>{item.file_url?<><TouchableOpacity onPress={()=>playAudio(item)} style={[ss.ibn,audioPlaying===item.id&&{backgroundColor:cl.pr+'30'}]}><FontAwesome5 name={audioPlaying===item.id?'pause':'play'} size={16} color={cl.pr}/></TouchableOpacity><TouchableOpacity onPress={()=>downloadFile(item.file_url,item.title+'.mp3')} style={ss.ibn}><FontAwesome5 name="download" size={16} color={cl.sc}/></TouchableOpacity></>:null}</View></View>)}
+        {key:'audios',label:'🎙️ Audios',data:fn('audio'),render:({item})=>(<View style={[ss.ic,{backgroundColor:cl.cd,borderColor:cl.bd}]}><View style={{flex:1,flexDirection:'row',alignItems:'center',gap:10}}><View style={[ss.ii2,{backgroundColor:'rgba(168,85,247,0.1)'}]}><FontAwesome5 name="microphone" size={18} color="#a855f7"/></View><View style={ss.if}><Text style={[ss.it,{color:cl.tx}]} numberOfLines={1}>{item.title}</Text><Text style={[ss.is,{color:cl.ts}]} numberOfLines={1}>{item.content||'Audio'}</Text></View></View><View style={ss.ia}><TouchableOpacity onPress={()=>toggleVis('note',item)} style={ss.ibn}><FontAwesome5 name={item.hidden?'lock':'shield-alt'} size={16} color={item.hidden?cl.dg:cl.pr}/></TouchableOpacity><TouchableOpacity onPress={()=>di(item.id)} style={ss.ibn}><FontAwesome5 name="trash-alt" size={16} color={cl.ts}/></TouchableOpacity>{item.file_url?<><TouchableOpacity onPress={()=>playAudio(item)} style={ss.ibn}><FontAwesome5 name="play" size={16} color={cl.pr}/></TouchableOpacity><TouchableOpacity onPress={()=>downloadFile(item.file_url,item.title+'.mp3')} style={ss.ibn}><FontAwesome5 name="download" size={16} color={cl.sc}/></TouchableOpacity></>:null}</View></View>)}
     ];
     
     const ac=tabs.find(t=>t.key===ct)||tabs[0];
@@ -142,6 +129,50 @@ export default function CourseScreen(){
                     <TouchableOpacity onPress={()=>{if(pdfUrl) Alert.alert('Télécharger','Voulez-vous télécharger ce document ?',[{text:'Annuler',style:'cancel'},{text:'Télécharger',onPress:()=>downloadFile(pdfUrl,'document.pdf')}]);}}><FontAwesome5 name="download" size={18} color={cl.pr}/></TouchableOpacity>
                 </View>
                 {pdfUrl ? <WebView source={{uri:pdfUrl}} style={{flex:1}} originWhitelist={['*']} javaScriptEnabled={true} domStorageEnabled={true} startInLoadingState={true} renderLoading={()=><View style={{flex:1,justifyContent:'center',alignItems:'center'}}><ActivityIndicator size="large" color={cl.pr}/><Text style={{color:cl.tx,marginTop:10}}>Chargement du PDF...</Text></View>}/> : <View style={{flex:1,justifyContent:'center',alignItems:'center'}}><Text style={{color:cl.tx}}>Aucun document à afficher</Text></View>}
+            </View>
+        </Modal>
+        
+        {/* Modal Audio */}
+        <Modal visible={audioVisible} transparent animationType="slide" onRequestClose={()=>{setAudioVisible(false);setAudioUrl(null)}}>
+            <View style={[ss.pdfContainer,{backgroundColor:cl.bg}]}>
+                <View style={[ss.pdfHeader,{borderBottomColor:cl.bd}]}>
+                    <TouchableOpacity onPress={()=>{setAudioVisible(false);setAudioUrl(null)}}>
+                        <FontAwesome5 name="times" size={20} color={cl.ts}/>
+                    </TouchableOpacity>
+                    <Text style={{color:cl.tx,fontWeight:'600',fontSize:14,flex:1,textAlign:'center'}} numberOfLines={1}>
+                        🎙️ {audioTitle||'Lecteur Audio'}
+                    </Text>
+                    <TouchableOpacity onPress={()=>{if(audioUrl) downloadFile(audioUrl,(audioTitle||'audio')+'.mp3')}}>
+                        <FontAwesome5 name="download" size={18} color={cl.pr}/>
+                    </TouchableOpacity>
+                </View>
+                {audioUrl ? (
+                    <View style={{flex:1,justifyContent:'center',alignItems:'center',padding:20}}>
+                        <View style={{flexDirection:'row',alignItems:'flex-end',gap:6,height:80,marginBottom:30}}>
+                            {[0.6,0.3,0.8,0.5,1,0.4,0.7,0.2,0.9,0.5,0.6,0.3,0.8,0.4,0.7,0.6].map((h,i)=>(
+                                <View key={i} style={{width:6,height:60*h,backgroundColor:cl.pr,borderRadius:3,opacity:0.4+h*0.6}}/>
+                            ))}
+                        </View>
+                        <Text style={{color:cl.tx,fontSize:20,fontWeight:'700',textAlign:'center',marginBottom:8}} numberOfLines={1}>{audioTitle}</Text>
+                        <Text style={{color:cl.ts,fontSize:13,marginBottom:40}}>Audio en cours de lecture</Text>
+                        <View style={{width:'100%',borderRadius:16,overflow:'hidden',backgroundColor:cl.cd+'80',borderWidth:1,borderColor:cl.bd}}>
+                            <WebView 
+                                source={{html: `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>*{margin:0;padding:0;box-sizing:border-box}body{display:flex;justify-content:center;align-items:center;min-height:80px;background:transparent;font-family:-apple-system,sans-serif}audio{width:100%;outline:none;filter:sepia(20%) saturate(70%) hue-rotate(220deg)}audio::-webkit-media-controls-panel{background:rgba(15,23,42,0.5)}audio::-webkit-media-controls-play-button{background:#6366f1;border-radius:50%}audio::-webkit-media-controls-current-time-display,audio::-webkit-media-controls-time-remaining-display{color:#f1f5f9}audio::-webkit-media-controls-timeline{background:rgba(99,102,241,0.2);border-radius:10px}</style></head><body><audio controls autoplay><source src="${audioUrl}" type="audio/mpeg"></audio></body></html>`}}
+                                style={{width:'100%',height:60}}
+                                originWhitelist={['*']}
+                                javaScriptEnabled={true}
+                                domStorageEnabled={true}
+                                mediaPlaybackRequiresUserAction={false}
+                                scrollEnabled={false}
+                            />
+                        </View>
+                    </View>
+                ) : (
+                    <View style={{flex:1,justifyContent:'center',alignItems:'center'}}>
+                        <FontAwesome5 name="headphones" size={60} color={cl.ts}/>
+                        <Text style={{color:cl.ts,marginTop:16,fontSize:16}}>Aucun audio à lire</Text>
+                    </View>
+                )}
             </View>
         </Modal>
         
