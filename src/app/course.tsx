@@ -104,6 +104,6 @@ const ss=StyleSheet.create({
     lb:{fontSize:12,fontWeight:'600',marginBottom:6},in:{borderWidth:1,borderRadius:10,padding:10,fontSize:13,marginBottom:4},
     fb:{flexDirection:'row',alignItems:'center',borderWidth:1,borderRadius:10,padding:12},msg:{padding:10,borderRadius:8,marginTop:8,borderWidth:1},
     bn:{padding:14,borderRadius:12,marginTop:8},
-    nc:{flex:1},nh:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',padding:14,paddingTop:48,borderBottomWidth:1},
+    nc:{flex:1},nh:{flexDirection:'row',justifyContent:'space-between',alignItems:'justify',padding:14,paddingTop:48,borderBottomWidth:1},
     nti2:{fontSize:18,fontWeight:'700',paddingVertical:10,borderBottomWidth:2,marginBottom:16},nci:{flex:1,fontSize:15,lineHeight:24,minHeight:250},
 });
