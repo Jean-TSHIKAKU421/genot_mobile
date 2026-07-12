@@ -10,9 +10,8 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { WebView } from 'react-native-webview';
-const API_URL='https://jtt.alwaysdata.net/api';
-const CL_URL='https://api.cloudinary.com/v1_1/dfosclwrp/auto/upload';
-const CL_UP='genotApp';
+import ModalConfirm from '../components/ModalConfirm';
+const API_URL='https://jtt.alwaysdata.net/api';const CL_URL='https://api.cloudinary.com/v1_1/dfosclwrp/auto/upload';const CL_UP='genotApp';
 
 const uploadWithXHR = (uri, folder, publicId) => {
     return new Promise((resolve, reject) => {
@@ -42,10 +41,12 @@ export default function CourseScreen(){
     const [pdfUrl,spdfUrl]=useState(null);const [pdfVisible,spdfVisible]=useState(false);
     const [dlProgress,sdlProgress]=useState(0);const [dlVisible,sdlVisible]=useState(false);const [dlMsg,sdlMsg]=useState('');
     const [vaultActive,svaultActive]=useState(false);
+    const [confirmVis,setConfirmVis]=useState(false);const [confirmDel,setConfirmDel]=useState(false);const [selType,setSelType]=useState('');const [selItemId,setSelItemId]=useState(null);const [selHidden,setSelHidden]=useState(false);
     const dk=th==='dark';const cl={bg:dk?'#020617':'#f0f2f5',cd:dk?'#0f172a':'#ffffff',tx:dk?'#f1f5f9':'#1a1a2e',ts:dk?'#94a3b8':'#64748b',bd:dk?'rgba(99,102,241,0.2)':'#e2e8f0',ib:dk?'rgba(255,255,255,0.05)':'#f8fafc',pr:'#6366f1',dg:'#ef4444',sc:'#10b981',wn:'#f59e0b',cy:'#06b6d4'};
     useFocusEffect(useCallback(()=>{ld()},[id]));
     const ld=async()=>{try{const uu=await AsyncStorage.getItem('currentUser');const ud=uu?JSON.parse(uu):null;if(ud){const rv=await fetch(`${API_URL}/vault/verify`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({matricule:ud.matricule,password:'test'})});const dv=await rv.json();svaultActive(dv.message!=='Coffre-fort non configuré.')}const r=await fetch(`${API_URL}/course/${id}`);const d=await r.json();if(d.success){sco(d.course);snt(d.notes)}}catch(e){}};
-    const di=(nid)=>{Alert.alert('Supprimer','Mettre dans la corbeille ?',[{text:'Annuler',style:'cancel'},{text:'Supprimer',onPress:async()=>{await fetch(`${API_URL}/notes/${nid}`,{method:'DELETE'});ld()}}])};
+    const di=(nid)=>{setSelType('note');setSelItemId(nid);setConfirmDel(true)};
+    const doDelete=async()=>{setConfirmDel(false);if(selItemId){await fetch(`${API_URL}/notes/${selItemId}`,{method:'DELETE'});ld()}};
     const sh=async(title,url)=>{try{await Sharing.shareAsync(url||'',{dialogTitle:title})}catch(e){Alert.alert('Info',url||'Lien copié')}};
     const fn=(type)=>nt.filter(n=>n.type===type&&(!st2||(n.title||'').toLowerCase().includes(st2.toLowerCase())||(n.content||'').toLowerCase().includes(st2.toLowerCase())));
     const openPdf=(url)=>{spdfUrl(url);spdfVisible(true)};
@@ -58,7 +59,8 @@ export default function CourseScreen(){
     const openEditSupport=(item)=>{sesid(item.id);sesti(item.title);sesdesc(item.content||'');sesv(true)};
     const saveEditedNote=async()=>{if(!eti.trim()||!eco.trim()){Alert.alert('Erreur','Titre et contenu requis.');return}try{const r=await fetch(`${API_URL}/notes/${eid}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:eti,content:eco})});const d=await r.json();if(d.success){sev(false);ld()}else Alert.alert('Erreur',d.message)}catch(e){Alert.alert('Erreur','Impossible de modifier.')}};
     const saveEditedSupport=async()=>{if(!esti.trim()){Alert.alert('Erreur','Titre requis.');return}try{const r=await fetch(`${API_URL}/notes/${esid}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:esti,content:esdesc})});const d=await r.json();if(d.success){sesv(false);ld()}else Alert.alert('Erreur',d.message)}catch(e){Alert.alert('Erreur','Impossible de modifier.')}};
-    const toggleVis=(type,item)=>{if(!vaultActive){Alert.alert('Info','Configurez d\'abord le coffre-fort dans les paramètres.');return}const msg=item?.hidden?'Démasquer cet élément ?':'Masquer cet élément dans le coffre-fort ?';Alert.alert(msg,'',[{text:'Annuler',style:'cancel'},{text:'Confirmer',onPress:async()=>{const r=await fetch(`${API_URL}/toggle-visibility/${type}/${item.id}`,{method:'POST'});const d=await r.json();if(d.success)ld()}}])};
+    const toggleVis=(type,item)=>{if(!vaultActive){Alert.alert('Info','Configurez d\'abord le coffre-fort dans les paramètres.');return}setSelType(type);setSelItemId(item.id);setSelHidden(item?.hidden||false);setConfirmVis(true)};
+    const doToggleVis=async()=>{setConfirmVis(false);if(selItemId){const r=await fetch(`${API_URL}/toggle-visibility/${selType}/${selItemId}`,{method:'POST'});const d=await r.json();if(d.success)ld()}};
     const resetAdd=()=>{sat('');spt('');spf(null);slt('');slu('');smsg('');smty('')};
     if(!co)return<View style={[ss.ct,{backgroundColor:cl.bg}]}><Text style={{color:cl.tx,textAlign:'center',marginTop:100}}>Chargement...</Text></View>;
     const tabs=[
@@ -68,6 +70,8 @@ export default function CourseScreen(){
     ];
     const ac=tabs.find(t=>t.key===ct)||tabs[0];
     return(<View style={[ss.ct,{backgroundColor:cl.bg}]}>
+        <ModalConfirm visible={confirmVis} title={selHidden?'Démasquer cet élément ?':'Masquer cet élément ?'} message={selHidden?'Il sera à nouveau visible.':'Il sera déplacé dans le coffre-fort.'} onCancel={()=>setConfirmVis(false)} onConfirm={doToggleVis} confirmText="Confirmer" confirmColor={selHidden?cl.sc:cl.pr} />
+        <ModalConfirm visible={confirmDel} title="Supprimer" message="Mettre dans la corbeille ?" onCancel={()=>setConfirmDel(false)} onConfirm={doDelete} confirmText="Supprimer" confirmColor={cl.dg} />
         <View style={[ss.hd,{backgroundColor:cl.cd,borderBottomColor:cl.bd}]}><TouchableOpacity onPress={()=>router.back()} style={ss.hb}><FontAwesome5 name="arrow-left" size={18} color={cl.pr}/></TouchableOpacity><View style={{flex:1,marginHorizontal:8}}><Text style={[ss.ht,{color:cl.tx}]} numberOfLines={1}>{co.title}</Text><Text style={[ss.hm,{color:cl.ts}]}>{nt.length} élément(s)</Text></View><TouchableOpacity onPress={()=>sav(true)} style={[ss.hb,{backgroundColor:cl.pr,borderRadius:20,width:36,height:36}]}><FontAwesome5 name="plus" size={14} color="#fff"/></TouchableOpacity></View>
         <View style={[ss.sb2,{backgroundColor:cl.ib,borderColor:cl.bd}]}><FontAwesome5 name="search" size={14} color={cl.ts} style={{marginRight:8}}/><TextInput style={[ss.si,{color:cl.tx}]} placeholder={ct==='supports'?'🔍 Titre...':ct==='links'?'🔍 Titre ou URL...':'🔍 Titre ou contenu...'} placeholderTextColor={cl.ts} value={st2} onChangeText={sst2}/>{st2.length>0&&<TouchableOpacity onPress={()=>sst2('')}><FontAwesome5 name="times" size={14} color={cl.ts} style={{marginLeft:8}}/></TouchableOpacity>}</View>
         <View style={ss.tb}>{tabs.map(t=>(<TouchableOpacity key={t.key} style={[ss.ti,ct===t.key&&{backgroundColor:cl.pr+'20'}]} onPress={()=>sct(t.key)}><Text style={[ss.tt,{color:ct===t.key?cl.pr:cl.ts}]}>{t.label}</Text></TouchableOpacity>))}</View>

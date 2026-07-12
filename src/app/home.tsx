@@ -2,16 +2,18 @@
 // home.tsx
 // ==========================================
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, Alert, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, TextInput } from 'react-native';
 import { Image } from 'expo-image';
 import { FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect } from 'expo-router';
+import ModalConfirm from '../components/ModalConfirm';
 const API_URL = 'https://jtt.alwaysdata.net/api';
 const PH = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 export default function HomeScreen() {
     const [u,su] = useState(null); const [cs,scs] = useState([]); const [rd,srd] = useState(false); const [th,sth] = useState('dark'); const [st,sst] = useState(''); const [fc,sfc] = useState([]); const [il,sil] = useState(false);
     const [vaultActive, svaultActive] = useState(false);
+    const [confirmVis, setConfirmVis] = useState(false); const [confirmDel, setConfirmDel] = useState(false); const [selId, setSelId] = useState(null); const [selHidden, setSelHidden] = useState(false);
     useEffect(()=>{AsyncStorage.getItem('theme').then(t=>{if(t)sth(t)});},[]);
     const tt=async()=>{const nt=th==='dark'?'light':'dark';sth(nt);await AsyncStorage.setItem('theme',nt)};
     const dk=th==='dark';const cl={bg:dk?'#020617':'#f0f2f5',cd:dk?'#0f172a':'#ffffff',tx:dk?'#f1f5f9':'#1a1a2e',ts:dk?'#94a3b8':'#64748b',bd:dk?'rgba(99,102,241,0.2)':'#e2e8f0',ib:dk?'rgba(255,255,255,0.05)':'#f8fafc',pr:'#6366f1',dg:'#ef4444',wn:'#f59e0b',sc:'#10b981'};
@@ -20,12 +22,16 @@ export default function HomeScreen() {
     const gp=(name)=>{if(!name)return'Utilisateur';const w=name.trim().split(/\s+/);return w.length>1?w[w.length-1]:w[0]};
     const hs=(t)=>{sst(t);if(!t.trim()){sfc([]);return}const tl=t.toLowerCase().trim();sfc(cs.filter(c=>(c.title||'').toLowerCase().includes(tl)||(c.professor||'').toLowerCase().includes(tl)||(c.description||'').toLowerCase().includes(tl)))};
     const ts2=async()=>{if(il){sil(false);return}try{const{default:SR}=await import('expo-speech-recognition');sil(true);const r=await SR.startListening({language:'fr-FR',continuous:false});if(r&&r.transcript){sst(r.transcript);hs(r.transcript)}}catch(e){Alert.alert('Info','Micro non disponible.')}finally{sil(false)}};
-    const dc=(id)=>{Alert.alert('Supprimer','Mettre ce cours dans la corbeille ?',[{text:'Annuler',style:'cancel'},{text:'Supprimer',style:'destructive',onPress:async()=>{await fetch(`${API_URL}/courses/${id}`,{method:'DELETE'});ld()}}])};
-    const toggleVis=(id)=>{const c=cs.find(x=>x.id===id);if(!vaultActive){Alert.alert('Info','Configurez d\'abord le coffre-fort dans les paramètres.');return}const msg=c?.hidden?'Démasquer ce cours ?':'Masquer ce cours dans le coffre-fort ?';Alert.alert(msg,'',[{text:'Annuler',style:'cancel'},{text:'Confirmer',onPress:async()=>{const r=await fetch(`${API_URL}/toggle-visibility/course/${id}`,{method:'POST'});const d=await r.json();if(d.success)ld()}}])};
+    const dc=(id)=>{setSelId(id);setConfirmDel(true)};
+    const doDelete=async()=>{setConfirmDel(false);if(selId){await fetch(`${API_URL}/courses/${selId}`,{method:'DELETE'});ld()}};
+    const toggleVis=(id)=>{const c=cs.find(x=>x.id===id);if(!vaultActive){Alert.alert('Info','Configurez d\'abord le coffre-fort dans les paramètres.');return}setSelId(id);setSelHidden(c?.hidden||false);setConfirmVis(true)};
+    const doToggleVis=async()=>{setConfirmVis(false);if(selId){const r=await fetch(`${API_URL}/toggle-visibility/course/${selId}`,{method:'POST'});const d=await r.json();if(d.success)ld()}};
     if(!rd)return<View style={[ss.ct,{backgroundColor:cl.bg}]}><Text style={{color:cl.tx,textAlign:'center',marginTop:100}}>Chargement...</Text></View>;
     const dcs=fc.length>0||st.length>0?fc:cs;
     return(
         <View style={[ss.ct,{backgroundColor:cl.bg}]}>
+            <ModalConfirm visible={confirmVis} title={selHidden?'Démasquer ce cours ?':'Masquer ce cours ?'} message={selHidden?'Il sera à nouveau visible.':'Il sera déplacé dans le coffre-fort.'} onCancel={()=>setConfirmVis(false)} onConfirm={doToggleVis} confirmText="Confirmer" confirmColor={selHidden?cl.sc:cl.pr} />
+            <ModalConfirm visible={confirmDel} title="Supprimer" message="Mettre ce cours dans la corbeille ?" onCancel={()=>setConfirmDel(false)} onConfirm={doDelete} confirmText="Supprimer" confirmColor={cl.dg} />
             <View style={[ss.hd,{backgroundColor:cl.cd,borderBottomColor:cl.bd}]}>
                 <View style={ss.ht}><FontAwesome5 name="book" size={40} color={cl.pr}/><Text style={[ss.hu,{color:cl.tx}]}>{u?gp(u.nom):''}</Text><TouchableOpacity onPress={()=>router.push('/settings')}>{u?.photo?<Image source={{uri:u.photo}} style={ss.pp} contentFit="cover" transition={200} cachePolicy="memory-disk"/>:<View style={ss.pph}><FontAwesome5 name="user" size={22} color="#fff"/></View>}</TouchableOpacity></View>
                 <View style={[ss.ha,{borderTopColor:cl.bd}]}>

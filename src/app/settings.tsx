@@ -8,6 +8,8 @@ import { FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import ModalPrompt from '../components/ModalPrompt';
+import ModalConfirm from '../components/ModalConfirm';
 
 const API_URL = 'https://jtt.alwaysdata.net/api';
 const CL_URL = 'https://api.cloudinary.com/v1_1/dfosclwrp/image/upload';
@@ -33,8 +35,9 @@ export default function SettingsScreen() {
     const [em,sem] = useState(false); const [et,set] = useState(''); const [ev,sev] = useState('');
     const [di,sdi] = useState(0);
     const [vaultActive, svaultActive] = useState(false);
-    const [vaultModal, svaultModal] = useState(false); const [vaultPass, svaultPass] = useState(''); const [vaultAction, svaultAction] = useState('');
-    const [createVaultModal, screateVaultModal] = useState(false); const [createVaultPass, screateVaultPass] = useState('');
+    const [showVaultPass, setShowVaultPass] = useState(false); const [vaultAction, setVaultAction] = useState('');
+    const [showCreateVault, setShowCreateVault] = useState(false);
+    const [confirmDisable, setConfirmDisable] = useState(false);
     const dim = [require('../../assets/images/dev1.jpg'),require('../../assets/images/dev2.jpg'),require('../../assets/images/dev3.jpg'),require('../../assets/images/dev4.jpg'),require('../../assets/images/dev5.jpg'),require('../../assets/images/dev6.jpg')];
     useEffect(()=>{AsyncStorage.getItem('theme').then(t=>{if(t)sth(t)});const iv=setInterval(()=>{sdi(p=>(p+1)%dim.length)},4000);return()=>clearInterval(iv);},[]);
     const dk=th==='dark';const cl={bg:dk?'#020617':'#f0f2f5',cd:dk?'#0f172a':'#ffffff',ca:dk?'#1a1a2e':'#f8fafc',tx:dk?'#f1f5f9':'#1a1a2e',ts:dk?'#94a3b8':'#64748b',bd:dk?'rgba(99,102,241,0.2)':'#e2e8f0',ib:dk?'rgba(255,255,255,0.05)':'#f8fafc',pr:'#6366f1',pl:'#818cf8',sc:'#10b981',dg:'#ef4444',wn:'#f59e0b'};
@@ -44,13 +47,17 @@ export default function SettingsScreen() {
     const oe=(t,v)=>{set(t);sev(v||'');sem(true)};
     const se=async()=>{try{const r=await fetch(`${API_URL}/update-profile/${u.matricule}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({[et]:ev})});const d=await r.json();if(d.success){su(d.user);await AsyncStorage.setItem('currentUser',JSON.stringify(d.user))}else Alert.alert('Erreur',d.message)}catch(e){Alert.alert('Erreur','Impossible de modifier.')}sem(false)};
     const pi=async()=>{const r=await ImagePicker.launchImageLibraryAsync({mediaTypes:['images'],allowsEditing:true,aspect:[1,1],quality:0.7});if(!r.canceled){try{const url=await uploadWithXHR(r.assets[0].uri,'profiles',`profile-${u.matricule}`);if(url){const rr=await fetch(`${API_URL}/update-profile/${u.matricule}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({photo:url})});const dd=await rr.json();if(dd.success){const up2={...u,photo:url};su(up2);await AsyncStorage.setItem('currentUser',JSON.stringify(up2))}else Alert.alert('Erreur',dd.message)}else Alert.alert('Erreur','Échec upload')}catch(e){Alert.alert('Erreur','Impossible upload: '+e.message)}}};
-    const handleVaultAction=()=>{svaultPass('');svaultAction('disable');svaultModal(true)};
-    const submitVaultPassword=async()=>{if(!vaultPass.trim()){Alert.alert('Erreur','Veuillez entrer le mot de passe.');return}const r=await fetch(`${API_URL}/vault/verify`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({matricule:u.matricule,password:vaultPass})});const d=await r.json();if(d.success){svaultModal(false);if(vaultAction==='disable'){const r2=await fetch(`${API_URL}/vault/disable`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({matricule:u.matricule})});const d2=await r2.json();if(d2.success){Alert.alert('✅','Coffre-fort désactivé. Tous les éléments ont été démasqués.');svaultActive(false)}else Alert.alert('Erreur','Échec de la désactivation.')}}else{Alert.alert('Erreur',d.message)}};
-    const handleCreateVault=()=>{screateVaultPass('');screateVaultModal(true)};
-    const submitCreateVault=async()=>{if(!createVaultPass||createVaultPass.length<4){Alert.alert('Erreur','Mot de passe minimum 4 caractères.');return}const r=await fetch(`${API_URL}/vault/setup`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({matricule:u.matricule,password:createVaultPass})});const d=await r.json();if(d.success){screateVaultModal(false);Alert.alert('✅','Coffre-fort activé !');svaultActive(true)}else Alert.alert('Erreur',d.message)};
+    const handleVaultAction=()=>{setVaultAction('disable');setShowVaultPass(true)};
+    const submitVaultPassword=async(pass:string)=>{setShowVaultPass(false);if(!pass.trim()){Alert.alert('Erreur','Mot de passe requis.');return}const r=await fetch(`${API_URL}/vault/verify`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({matricule:u.matricule,password:pass})});const d=await r.json();if(d.success){if(vaultAction==='disable'){setConfirmDisable(true)}}else{Alert.alert('Erreur',d.message)}};
+    const doDisableVault=async()=>{setConfirmDisable(false);const r=await fetch(`${API_URL}/vault/disable`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({matricule:u.matricule})});const d=await r.json();if(d.success){Alert.alert('✅','Coffre-fort désactivé.');svaultActive(false)}else Alert.alert('Erreur','Échec.')};
+    const handleCreateVault=()=>{setShowCreateVault(true)};
+    const submitCreateVault=async(pass:string)=>{setShowCreateVault(false);if(!pass||pass.length<4){Alert.alert('Erreur','Minimum 4 caractères.');return}const r=await fetch(`${API_URL}/vault/setup`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({matricule:u.matricule,password:pass})});const d=await r.json();if(d.success){Alert.alert('✅','Coffre-fort activé !');svaultActive(true)}else Alert.alert('Erreur',d.message)};
     if(!u)return<View style={[ss.ct,{backgroundColor:cl.bg}]}><Text style={{color:cl.tx,textAlign:'center',marginTop:100}}>Chargement...</Text></View>;
     return(
         <View style={[ss.ct,{backgroundColor:cl.bg}]}>
+            <ModalPrompt visible={showVaultPass} title="🔒 Mot de passe coffre-fort" message="Entrez le mot de passe" placeholder="Mot de passe" secureTextEntry onCancel={()=>setShowVaultPass(false)} onConfirm={submitVaultPassword} />
+            <ModalPrompt visible={showCreateVault} title="🔒 Créer un coffre-fort" message="Choisissez un mot de passe (min 4 car.)" placeholder="Mot de passe" secureTextEntry onCancel={()=>setShowCreateVault(false)} onConfirm={submitCreateVault} />
+            <ModalConfirm visible={confirmDisable} title="Désactiver le coffre-fort ?" message="Tous les éléments masqués seront démasqués." onCancel={()=>setConfirmDisable(false)} onConfirm={doDisableVault} confirmText="Désactiver" confirmColor={cl.dg} />
             <View style={[ss.hd,{backgroundColor:cl.cd,borderBottomColor:cl.bd}]}><TouchableOpacity onPress={()=>router.back()} style={ss.hb}><FontAwesome5 name="arrow-left" size={18} color={cl.pr}/></TouchableOpacity><Text style={[ss.ht,{color:cl.tx}]}>Paramètres</Text><View style={ss.hb}/></View>
             <ScrollView contentContainerStyle={ss.cn} showsVerticalScrollIndicator={false}>
                 <View style={[ss.sc,{backgroundColor:cl.cd,borderColor:cl.bd}]}>
@@ -89,8 +96,6 @@ export default function SettingsScreen() {
                 <TouchableOpacity style={ss.lb} onPress={lo}><FontAwesome5 name="sign-out-alt" size={16} color="#f87171"/><Text style={ss.lt}> Se déconnecter</Text></TouchableOpacity>
             </ScrollView>
             <Modal visible={em} transparent animationType="fade"><View style={ss.mo}><View style={[ss.mc,{backgroundColor:cl.cd,borderColor:cl.bd}]}><Text style={[ss.mt,{color:cl.tx}]}>Modifier {et==='nom'?'le nom':"l'email"}</Text><TextInput style={[ss.mi,{backgroundColor:cl.ib,borderColor:cl.bd,color:cl.tx}]} value={ev} onChangeText={sev} placeholder={et==='nom'?'Nouveau nom':'Nouvel email'} placeholderTextColor={cl.ts}/><View style={ss.ma}><TouchableOpacity style={[ss.mb,{backgroundColor:cl.ib}]} onPress={()=>sem(false)}><Text style={{color:cl.tx,fontWeight:'600'}}>Annuler</Text></TouchableOpacity><TouchableOpacity style={[ss.mb,{backgroundColor:cl.pr}]} onPress={se}><Text style={{color:'#fff',fontWeight:'600'}}>Enregistrer</Text></TouchableOpacity></View></View></View></Modal>
-            <Modal visible={vaultModal} transparent animationType="fade"><View style={ss.mo}><View style={[ss.mc,{backgroundColor:cl.cd,borderColor:cl.bd}]}><Text style={[ss.mt,{color:cl.tx}]}>🔒 Mot de passe coffre-fort</Text><TextInput style={[ss.mi,{backgroundColor:cl.ib,borderColor:cl.bd,color:cl.tx}]} value={vaultPass} onChangeText={svaultPass} placeholder="Mot de passe" placeholderTextColor={cl.ts} secureTextEntry/><View style={ss.ma}><TouchableOpacity style={[ss.mb,{backgroundColor:cl.ib}]} onPress={()=>svaultModal(false)}><Text style={{color:cl.tx,fontWeight:'600'}}>Annuler</Text></TouchableOpacity><TouchableOpacity style={[ss.mb,{backgroundColor:cl.pr}]} onPress={submitVaultPassword}><Text style={{color:'#fff',fontWeight:'600'}}>Valider</Text></TouchableOpacity></View></View></View></Modal>
-            <Modal visible={createVaultModal} transparent animationType="fade"><View style={ss.mo}><View style={[ss.mc,{backgroundColor:cl.cd,borderColor:cl.bd}]}><Text style={[ss.mt,{color:cl.tx}]}>🔒 Créer un coffre-fort</Text><TextInput style={[ss.mi,{backgroundColor:cl.ib,borderColor:cl.bd,color:cl.tx}]} value={createVaultPass} onChangeText={screateVaultPass} placeholder="Mot de passe (min 4 car.)" placeholderTextColor={cl.ts} secureTextEntry/><View style={ss.ma}><TouchableOpacity style={[ss.mb,{backgroundColor:cl.ib}]} onPress={()=>screateVaultModal(false)}><Text style={{color:cl.tx,fontWeight:'600'}}>Annuler</Text></TouchableOpacity><TouchableOpacity style={[ss.mb,{backgroundColor:cl.pr}]} onPress={submitCreateVault}><Text style={{color:'#fff',fontWeight:'600'}}>Créer</Text></TouchableOpacity></View></View></View></Modal>
         </View>
     );
 }
