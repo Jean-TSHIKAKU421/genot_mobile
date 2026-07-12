@@ -2,23 +2,28 @@
 // vault.tsx
 // ==========================================
 import { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, Alert, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, FlatList } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect } from 'expo-router';
+import ModalConfirm from '../components/ModalConfirm';
 const API_URL = 'https://jtt.alwaysdata.net/api';
 
 export default function VaultScreen() {
     const [u, su] = useState(null); const [locked, slocked] = useState(true); const [pass, spass] = useState('');
     const [courses, scourses] = useState([]); const [notes, snotes] = useState([]); const [tab, stab] = useState('courses');
     const [th, sth] = useState('dark');
+    const [confirmRestore, setConfirmRestore] = useState(false); const [confirmDelete, setConfirmDelete] = useState(false);
+    const [selType, setSelType] = useState(''); const [selId, setSelId] = useState(null);
     const dk = th === 'dark'; const cl = { bg: dk ? '#020617' : '#f0f2f5', cd: dk ? '#0f172a' : '#ffffff', tx: dk ? '#f1f5f9' : '#1a1a2e', ts: dk ? '#94a3b8' : '#64748b', bd: dk ? 'rgba(99,102,241,0.2)' : '#e2e8f0', ib: dk ? 'rgba(255,255,255,0.05)' : '#f8fafc', pr: '#6366f1', dg: '#ef4444', sc: '#10b981', wn: '#f59e0b' };
     useFocusEffect(useCallback(() => { (async () => { const uu = await AsyncStorage.getItem('currentUser'); if (!uu) { router.replace('/'); return; } su(JSON.parse(uu)); })(); }, []));
 
-    const unlock = async () => { if (!pass.trim()) { Alert.alert('Erreur', 'Veuillez entrer le mot de passe.'); return; } const r = await fetch(`${API_URL}/vault/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ matricule: u.matricule, password: pass }) }); const d = await r.json(); if (d.success) { slocked(false); loadVault(); } else Alert.alert('Erreur', d.message); };
+    const unlock = async () => { if (!pass.trim()) { return; } const r = await fetch(`${API_URL}/vault/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ matricule: u.matricule, password: pass }) }); const d = await r.json(); if (d.success) { slocked(false); loadVault(); } };
     const loadVault = async () => { const r = await fetch(`${API_URL}/vault/${u.matricule}`); const d = await r.json(); if (d.success) { scourses(d.courses); snotes(d.notes); } };
-    const restoreItem = async (type, id) => { Alert.alert('Restaurer', 'Remettre cet élément visible ?', [{ text: 'Annuler', style: 'cancel' }, { text: 'Oui', onPress: async () => { await fetch(`${API_URL}/toggle-visibility/${type}/${id}`, { method: 'POST' }); loadVault(); } }]) };
-    const deleteItem = async (type, id) => { Alert.alert('Supprimer', 'Mettre dans la corbeille ?', [{ text: 'Annuler', style: 'cancel' }, { text: 'Oui', onPress: async () => { if (type === 'course') { await fetch(`${API_URL}/courses/${id}`, { method: 'DELETE' }); } else { await fetch(`${API_URL}/notes/${id}`, { method: 'DELETE' }); } loadVault(); } }]) };
+    const restoreItem = (type, id) => { setSelType(type); setSelId(id); setConfirmRestore(true); };
+    const doRestore = async () => { setConfirmRestore(false); await fetch(`${API_URL}/toggle-visibility/${selType}/${selId}`, { method: 'POST' }); loadVault(); };
+    const deleteItem = (type, id) => { setSelType(type); setSelId(id); setConfirmDelete(true); };
+    const doDelete = async () => { setConfirmDelete(false); if (selType === 'course') { await fetch(`${API_URL}/courses/${selId}`, { method: 'DELETE' }); } else { await fetch(`${API_URL}/notes/${selId}`, { method: 'DELETE' }); } loadVault(); };
 
     if (locked) {
         return (
@@ -35,6 +40,8 @@ export default function VaultScreen() {
 
     return (
         <View style={[ss.ct, { backgroundColor: cl.bg }]}>
+            <ModalConfirm visible={confirmRestore} title="Restaurer" message="Remettre cet élément visible ?" onCancel={()=>setConfirmRestore(false)} onConfirm={doRestore} confirmText="Restaurer" confirmColor={cl.sc} />
+            <ModalConfirm visible={confirmDelete} title="Supprimer" message="Mettre dans la corbeille ?" onCancel={()=>setConfirmDelete(false)} onConfirm={doDelete} confirmText="Supprimer" confirmColor={cl.dg} />
             <View style={[ss.hd, { backgroundColor: cl.cd, borderBottomColor: cl.bd }]}><TouchableOpacity onPress={() => router.back()} style={ss.hb}><FontAwesome5 name="arrow-left" size={18} color={cl.pr} /></TouchableOpacity><Text style={[ss.ht, { color: cl.tx }]}>🔒 Coffre-fort</Text><View style={ss.hb} /></View>
             <View style={ss.tabs}><TouchableOpacity style={[ss.tab, tab === 'courses' && { backgroundColor: cl.pr }]} onPress={() => stab('courses')}><Text style={[ss.tt, { color: tab === 'courses' ? '#fff' : cl.ts }]}>📚 Cours ({courses.length})</Text></TouchableOpacity><TouchableOpacity style={[ss.tab, tab === 'data' && { backgroundColor: cl.pr }]} onPress={() => stab('data')}><Text style={[ss.tt, { color: tab === 'data' ? '#fff' : cl.ts }]}>📄 Données ({notes.length})</Text></TouchableOpacity></View>
             {tab === 'courses' && (<FlatList data={courses} keyExtractor={item => 'c' + item.id} contentContainerStyle={ss.ls} renderItem={({ item }) => (<View style={[ss.item, { backgroundColor: cl.cd, borderColor: cl.bd }]}><View style={{ flex: 1 }}><Text style={[ss.it2, { color: cl.tx }]} numberOfLines={1}>📚 {item.title}</Text><Text style={[ss.is2, { color: cl.ts }]}>{item.professor ? 'Prof: ' + item.professor + ' • ' : ''}{new Date(item.created_at).toLocaleDateString('fr-FR')}</Text></View><View style={ss.ia2}><TouchableOpacity style={[ss.ib2, { backgroundColor: cl.sc }]} onPress={() => restoreItem('course', item.id)}><FontAwesome5 name="undo" size={12} color="#fff" /></TouchableOpacity><TouchableOpacity style={[ss.ib2, { backgroundColor: cl.dg }]} onPress={() => deleteItem('course', item.id)}><FontAwesome5 name="trash-alt" size={12} color="#fff" /></TouchableOpacity></View></View>)} ListEmptyComponent={<View style={ss.em}><Text style={{ color: cl.ts }}>Aucun cours masqué</Text></View>} />)}
