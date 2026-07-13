@@ -10,6 +10,7 @@
     "expo": "~56.0.15",
     "expo-av": "^16.0.8",
     "expo-constants": "~56.0.18",
+    "expo-dev-client": "~56.0.22",
     "expo-device": "~56.0.4",
     "expo-document-picker": "~56.0.4",
     "expo-file-system": "~56.0.8",
@@ -52,5 +53,13 @@
     "web": "expo start --web",
     "lint": "expo lint"
   },
-  "private": true
+  "private": true,
+  "expo": {
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "exclude": ["expo-av"],
+        "listUnknownPackages": false
+      }
+    }
+  }
 }
