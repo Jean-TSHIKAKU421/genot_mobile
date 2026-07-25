@@ -35,14 +35,14 @@ export default function AddCourseScreen() {
             if(im){const b64=await FileSystem.readAsStringAsync(im.uri,{encoding:FileSystem.EncodingType.Base64});const fd=new FormData();fd.append('file',`data:image/jpeg;base64,${b64}`);fd.append('upload_preset',CL_UP);fd.append('folder','courses');const cr=await fetch(CL_URL,{method:'POST',body:fd});const cd=await cr.json();if(cd.secure_url)iu=cd.secure_url;else{smg('Erreur upload image.');smt('error');slo(false);return}}
             const fd=new FormData();fd.append('title',ti.trim());fd.append('user_matricule',us.matricule);if(pr.trim())fd.append('professor',pr.trim());if(de.trim())fd.append('description',de.trim());if(iu)fd.append('image_url',iu);
             const r=await apiFetch(`${API_URL}/courses`,{method:'POST',body:fd});const d=await r.json();
-            if(d.success){smg('✅ Cours créé !');smt('success');setTimeout(()=>router.back(),800)}else{smg(d.message||'Erreur.');smt('error')}
+            if(d.success){smg('Cours créé !');smt('success');setTimeout(()=>router.back(),800)}else{smg(d.message||'Erreur.');smt('error')}
         }catch(e){smg('Erreur: '+e.message);smt('error')}
         slo(false);
     };
     if(!us)return<View style={[ss.ct,{backgroundColor:cl.bg}]}><Text style={{color:cl.tx,textAlign:'center',marginTop:100}}>Chargement...</Text></View>;
     return(
         <View style={[ss.ct,{backgroundColor:cl.bg}]}>
-            <View style={[ss.hd,{backgroundColor:cl.cd,borderBottomColor:cl.bd}]}><TouchableOpacity onPress={()=>router.back()} style={ss.hb}><FontAwesome5 name="arrow-left" size={18} color={cl.pr}/></TouchableOpacity><Text style={[ss.ht,{color:cl.tx}]}>Nouveau cours</Text><View style={ss.hb}/></View>
+            <View style={[ss.hd,{backgroundColor:cl.cd,borderBottomColor:cl.bd}]}><TouchableOpacity onPress={()=>router.back()} style={ss.hb}><FontAwesome5 name="arrow-left" size={18} color={cl.pr}/></TouchableOpacity><Text style={[ss.ht,{color:cl.tx}]}><FontAwesome5 name="plus-circle" size={16} color={cl.pr}/> Nouveau cours</Text><View style={ss.hb}/></View>
             <ScrollView contentContainerStyle={ss.cn} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                 <TouchableOpacity onPress={pi} style={[ss.ip,{backgroundColor:cl.ib,borderColor:cl.bd}]} activeOpacity={0.7}>
                     {im?<View style={ss.iv}><Image source={{uri:im.uri}} style={ss.pv}/><TouchableOpacity style={ss.rb} onPress={()=>sim(null)}><FontAwesome5 name="times-circle" size={24} color={cl.dg}/></TouchableOpacity></View>:<View style={ss.ph}><FontAwesome5 name="image" size={40} color={cl.ts}/><Text style={[ss.pt,{color:cl.ts}]}>Ajouter une image de couverture</Text><Text style={[ss.ps,{color:cl.ts}]}>Format 16:9 • Max 5 Mo</Text></View>}
@@ -52,7 +52,7 @@ export default function AddCourseScreen() {
                     <View style={ss.fg}><Text style={[ss.lb,{color:cl.tx}]}>Professeur <Text style={{color:'#64748b',fontSize:11}}>(optionnel)</Text></Text><View style={[ss.iw,{backgroundColor:cl.ib,borderColor:cl.bd}]}><FontAwesome5 name="user-tie" size={14} color={cl.ts} style={ss.ii}/><TextInput style={[ss.in,{color:cl.tx}]} placeholder="Ex: Dr. Mukendi" placeholderTextColor={cl.ts} value={pr} onChangeText={spr}/></View></View>
                     <View style={ss.fg}><Text style={[ss.lb,{color:cl.tx}]}>Description <Text style={{color:'#64748b',fontSize:11}}>(optionnel)</Text></Text><View style={[ss.tw,{backgroundColor:cl.ib,borderColor:cl.bd}]}><TextInput style={[ss.ta,{color:cl.tx}]} placeholder="Décrivez brièvement ce cours..." placeholderTextColor={cl.ts} value={de} onChangeText={sde} multiline numberOfLines={4} textAlignVertical="top" maxLength={500}/></View><Text style={[ss.cc,{color:cl.ts}]}>{de.length}/500</Text></View>
                 </View>
-                {mg?<View style={[ss.mb,mt==='error'?ss.me:ss.ms]}><Text style={[ss.mt2,{color:mt==='error'?'#fca5a5':'#6ee7b7'}]}>{mg}</Text></View>:null}
+                {mg?<View style={[ss.mb,mt==='error'?ss.me:ss.ms]}><View style={{flexDirection:'row',alignItems:'center',gap:6,justifyContent:'center'}}><FontAwesome5 name={mt==='error'?'exclamation-circle':'check-circle'} size={14} color={mt==='error'?'#fca5a5':'#6ee7b7'}/><Text style={[ss.mt2,{color:mt==='error'?'#fca5a5':'#6ee7b7'}]}>{mg}</Text></View></View>:null}
                 <TouchableOpacity style={[ss.sb,{backgroundColor:cl.pr}]} onPress={hc} disabled={lo} activeOpacity={0.8}>{lo?<ActivityIndicator color="#fff"/>:<View style={ss.sbc}><FontAwesome5 name="plus-circle" size={16} color="#fff"/><Text style={ss.sbt}> Créer le cours</Text></View>}</TouchableOpacity>
                 <TouchableOpacity style={[ss.cb,{borderColor:cl.bd}]} onPress={()=>router.back()}><Text style={[ss.cbt,{color:cl.ts}]}>Annuler</Text></TouchableOpacity>
             </ScrollView>
