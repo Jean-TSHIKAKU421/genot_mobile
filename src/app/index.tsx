@@ -17,15 +17,28 @@ export default function LoginScreen() {
     const handleLogin = async () => {
         if (!matricule || !password) { setMessage('Matricule et mot de passe requis.'); setMessageType('error'); return; }
         if (matricule === '24AD421SI' && password === 'tikiplugg') {
-            await AsyncStorage.setItem('currentUser', JSON.stringify({ matricule: '24AD421SI', nom: 'Admin', admin: true }));
-            router.replace('/admin'); return;
+            setLoading(true);
+            try {
+                const r = await fetch(`${API_URL}/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ matricule, password }) });
+                const data = await r.json();
+                if (data.success) {
+                    await AsyncStorage.setItem('currentUser', JSON.stringify(data.user));
+                    await AsyncStorage.setItem('token', data.token);
+                    router.replace('/admin');
+                } else { setMessage(data.message || 'Identifiants incorrects.'); setMessageType('error'); }
+            } catch (e) { setMessage('Impossible de contacter le serveur.'); setMessageType('error'); }
+            setLoading(false); return;
         }
         setLoading(true); setMessage('');
         try {
             const r = await fetch(`${API_URL}/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ matricule, password }) });
             const data = await r.json();
-            if (data.success) { await AsyncStorage.setItem('currentUser', JSON.stringify(data.user)); setMessage('✅ Connexion réussie.'); setMessageType('success'); setTimeout(() => router.replace('/home'), 800); }
-            else { setMessage(data.message || 'Identifiants incorrects.'); setMessageType('error'); }
+            if (data.success) {
+                await AsyncStorage.setItem('currentUser', JSON.stringify(data.user));
+                await AsyncStorage.setItem('token', data.token);
+                setMessage('✅ Connexion réussie.'); setMessageType('success');
+                setTimeout(() => router.replace('/home'), 800);
+            } else { setMessage(data.message || 'Identifiants incorrects.'); setMessageType('error'); }
         } catch (e) { setMessage('Impossible de contacter le serveur.'); setMessageType('error'); }
         setLoading(false);
     };

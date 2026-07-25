@@ -13,6 +13,14 @@ const API_URL = 'https://jtt.alwaysdata.net/api';
 const CL_URL = 'https://api.cloudinary.com/v1_1/dfosclwrp/image/upload';
 const CL_UP = 'genotApp';
 
+async function apiFetch(url, options = {}) {
+    const token = await AsyncStorage.getItem('token');
+    const headers = { ...options.headers };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (!(options.body instanceof FormData)) headers['Content-Type'] = 'application/json';
+    return fetch(url, { ...options, headers });
+}
+
 export default function AddCourseScreen() {
     const [ti,sti] = useState(''); const [pr,spr] = useState(''); const [de,sde] = useState(''); const [im,sim] = useState(null);
     const [lo,slo] = useState(false); const [mg,smg] = useState(''); const [mt,smt] = useState(''); const [us,sus] = useState(null); const [th,sth] = useState('dark');
@@ -26,7 +34,7 @@ export default function AddCourseScreen() {
             let iu=null;
             if(im){const b64=await FileSystem.readAsStringAsync(im.uri,{encoding:FileSystem.EncodingType.Base64});const fd=new FormData();fd.append('file',`data:image/jpeg;base64,${b64}`);fd.append('upload_preset',CL_UP);fd.append('folder','courses');const cr=await fetch(CL_URL,{method:'POST',body:fd});const cd=await cr.json();if(cd.secure_url)iu=cd.secure_url;else{smg('Erreur upload image.');smt('error');slo(false);return}}
             const fd=new FormData();fd.append('title',ti.trim());fd.append('user_matricule',us.matricule);if(pr.trim())fd.append('professor',pr.trim());if(de.trim())fd.append('description',de.trim());if(iu)fd.append('image_url',iu);
-            const r=await fetch(`${API_URL}/courses`,{method:'POST',body:fd});const d=await r.json();
+            const r=await apiFetch(`${API_URL}/courses`,{method:'POST',body:fd});const d=await r.json();
             if(d.success){smg('✅ Cours créé !');smt('success');setTimeout(()=>router.back(),800)}else{smg(d.message||'Erreur.');smt('error')}
         }catch(e){smg('Erreur: '+e.message);smt('error')}
         slo(false);

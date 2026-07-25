@@ -2,7 +2,7 @@
 // home.tsx
 // ==========================================
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, TextInput, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -10,6 +10,15 @@ import { router, useFocusEffect } from 'expo-router';
 import ModalConfirm from '../components/ModalConfirm';
 const API_URL = 'https://jtt.alwaysdata.net/api';
 const PH = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
+async function apiFetch(url, options = {}) {
+    const token = await AsyncStorage.getItem('token');
+    const headers = { ...options.headers };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (!(options.body instanceof FormData)) headers['Content-Type'] = 'application/json';
+    return fetch(url, { ...options, headers });
+}
+
 export default function HomeScreen() {
     const [u,su] = useState(null); const [cs,scs] = useState([]); const [rd,srd] = useState(false); const [th,sth] = useState('dark'); const [st,sst] = useState(''); const [fc,sfc] = useState([]); const [il,sil] = useState(false);
     const [vaultActive, svaultActive] = useState(false);
@@ -18,14 +27,25 @@ export default function HomeScreen() {
     const tt=async()=>{const nt=th==='dark'?'light':'dark';sth(nt);await AsyncStorage.setItem('theme',nt)};
     const dk=th==='dark';const cl={bg:dk?'#020617':'#f0f2f5',cd:dk?'#0f172a':'#ffffff',tx:dk?'#f1f5f9':'#1a1a2e',ts:dk?'#94a3b8':'#64748b',bd:dk?'rgba(99,102,241,0.2)':'#e2e8f0',ib:dk?'rgba(255,255,255,0.05)':'#f8fafc',pr:'#6366f1',dg:'#ef4444',wn:'#f59e0b',sc:'#10b981'};
     useFocusEffect(useCallback(()=>{ld()},[]));
-    const ld=async()=>{const uu=await AsyncStorage.getItem('currentUser');if(!uu){router.replace('/');return}const ud=JSON.parse(uu);su(ud);fetch(`${API_URL}/visits`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({platform:'mobile',page:'home',matricule:ud.matricule})}).catch(()=>{});try{const r=await fetch(`${API_URL}/vault/verify`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({matricule:ud.matricule,password:'test'})});const d=await r.json();svaultActive(d.message!=='Coffre-fort non configuré.');const r2=await fetch(`${API_URL}/courses/${ud.matricule}`);const d2=await r2.json();if(d2.success)scs(d2.courses)}catch(e){}srd(true)};
+    const ld=async()=>{
+        const uu=await AsyncStorage.getItem('currentUser');if(!uu){router.replace('/');return}
+        const ud=JSON.parse(uu);su(ud);
+        apiFetch(`${API_URL}/visits`,{method:'POST',body:JSON.stringify({platform:'mobile',page:'home',matricule:ud.matricule})}).catch(()=>{});
+        try{
+            const r=await apiFetch(`${API_URL}/vault/verify`,{method:'POST',body:JSON.stringify({matricule:ud.matricule,password:'test'})});
+            const d=await r.json();svaultActive(d.message!=='Coffre-fort non configuré.');
+            const r2=await apiFetch(`${API_URL}/courses/${ud.matricule}`);const d2=await r2.json();
+            if(d2.success)scs(d2.courses);
+        }catch(e){}
+        srd(true);
+    };
     const gp=(name)=>{if(!name)return'Utilisateur';const w=name.trim().split(/\s+/);return w.length>1?w[w.length-1]:w[0]};
     const hs=(t)=>{sst(t);if(!t.trim()){sfc([]);return}const tl=t.toLowerCase().trim();sfc(cs.filter(c=>(c.title||'').toLowerCase().includes(tl)||(c.professor||'').toLowerCase().includes(tl)||(c.description||'').toLowerCase().includes(tl)))};
     const ts2=async()=>{if(il){sil(false);return}try{const{default:SR}=await import('expo-speech-recognition');sil(true);const r=await SR.startListening({language:'fr-FR',continuous:false});if(r&&r.transcript){sst(r.transcript);hs(r.transcript)}}catch(e){Alert.alert('Info','Micro non disponible.')}finally{sil(false)}};
     const dc=(id)=>{setSelId(id);setConfirmDel(true)};
-    const doDelete=async()=>{setConfirmDel(false);if(selId){await fetch(`${API_URL}/courses/${selId}`,{method:'DELETE'});ld()}};
+    const doDelete=async()=>{setConfirmDel(false);if(selId){await apiFetch(`${API_URL}/courses/${selId}`,{method:'DELETE'});ld()}};
     const toggleVis=(id)=>{const c=cs.find(x=>x.id===id);if(!vaultActive){Alert.alert('Info','Configurez d\'abord le coffre-fort dans les paramètres.');return}setSelId(id);setSelHidden(c?.hidden||false);setConfirmVis(true)};
-    const doToggleVis=async()=>{setConfirmVis(false);if(selId){const r=await fetch(`${API_URL}/toggle-visibility/course/${selId}`,{method:'POST'});const d=await r.json();if(d.success)ld()}};
+    const doToggleVis=async()=>{setConfirmVis(false);if(selId){const r=await apiFetch(`${API_URL}/toggle-visibility/course/${selId}`,{method:'POST'});const d=await r.json();if(d.success)ld()}};
     if(!rd)return<View style={[ss.ct,{backgroundColor:cl.bg}]}><Text style={{color:cl.tx,textAlign:'center',marginTop:100}}>Chargement...</Text></View>;
     const dcs=fc.length>0||st.length>0?fc:cs;
     return(
@@ -39,15 +59,15 @@ export default function HomeScreen() {
                     <TouchableOpacity style={[ss.ib,{backgroundColor:cl.ib,borderColor:cl.bd}]} onPress={()=>router.push('/settings')}><FontAwesome5 name="cog" size={18} color={cl.tx}/></TouchableOpacity>
                     <TouchableOpacity style={[ss.ib,{backgroundColor:cl.ib,borderColor:cl.bd}]} onPress={()=>router.push('/trash')}><FontAwesome5 name="trash-alt" size={18} color={cl.tx}/></TouchableOpacity>
                     {vaultActive&&<TouchableOpacity style={[ss.ib,{backgroundColor:cl.ib,borderColor:cl.bd}]} onPress={()=>router.push('/vault')}><FontAwesome5 name="lock" size={18} color={cl.tx}/></TouchableOpacity>}
-                    <TouchableOpacity style={[ss.ib,{backgroundColor:cl.ib,borderColor:cl.bd}]} onPress={async()=>{await AsyncStorage.removeItem('currentUser');router.replace('/')}}><FontAwesome5 name="sign-out-alt" size={18} color={cl.tx}/></TouchableOpacity>
+                    <TouchableOpacity style={[ss.ib,{backgroundColor:cl.ib,borderColor:cl.bd}]} onPress={async()=>{await AsyncStorage.removeItem('currentUser');await AsyncStorage.removeItem('token');router.replace('/')}}><FontAwesome5 name="sign-out-alt" size={18} color={cl.tx}/></TouchableOpacity>
                 </View>
             </View>
-            <Text style={[ss.pt,{color:cl.tx}]}>📚 Mes Cours</Text>
+            <Text style={[ss.pt,{color:cl.tx}]}><FontAwesome5 name="book" size={18} color={cl.pr}/>  Mes Cours</Text>
             <View style={[ss.sb,{backgroundColor:cl.ib,borderColor:cl.bd}]}><FontAwesome5 name="search" size={16} color={cl.ts} style={{marginRight:8}}/><TextInput style={[ss.si,{color:cl.tx}]} placeholder="Rechercher un cours..." placeholderTextColor={cl.ts} value={st} onChangeText={hs}/>{st.length>0&&<TouchableOpacity onPress={()=>{sst('');sfc([])}}><FontAwesome5 name="times" size={16} color={cl.ts} style={{marginRight:8}}/></TouchableOpacity>}<TouchableOpacity style={[ss.mb,il&&{backgroundColor:'#ef4444'}]} onPress={ts2}><FontAwesome5 name="microphone" size={16} color={il?'#fff':cl.ts}/></TouchableOpacity></View>
             <FlatList data={dcs} renderItem={({item})=>(
                 <TouchableOpacity style={[ss.cc,{backgroundColor:cl.cd,borderColor:cl.bd}]} onPress={()=>router.push({pathname:'/course',params:{id:item.id}})}>
                     {item.image_url?<Image source={{uri:item.image_url}} style={ss.ci} contentFit="cover" transition={300} cachePolicy="memory-disk" placeholder={{uri:PH}}/>:<View style={ss.cip}><FontAwesome5 name="book" size={45} color="#fff"/></View>}
-                    <View style={ss.cb}><Text style={[ss.ct2,{color:cl.tx}]} numberOfLines={1}>{item.title}</Text><View style={ss.cr}><FontAwesome5 name="user-tie" size={12} color={cl.pr}/><Text style={[ss.cp,{color:cl.ts}]}> {item.professor||'---------'}</Text></View><Text style={[ss.cm,{color:cl.ts}]}>📝 {item.noteCount||0} note(s)</Text><Text style={ss.cd}>📅 {new Date(item.created_at).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}</Text>
+                    <View style={ss.cb}><Text style={[ss.ct2,{color:cl.tx}]} numberOfLines={1}>{item.title}</Text><View style={ss.cr}><FontAwesome5 name="user-tie" size={12} color={cl.pr}/><Text style={[ss.cp,{color:cl.ts}]}> {item.professor||'---------'}</Text></View><Text style={[ss.cm,{color:cl.ts}]}><FontAwesome5 name="sticky-note" size={10} color={cl.ts}/> {item.noteCount||0} note(s)</Text><Text style={ss.cd}><FontAwesome5 name="calendar-alt" size={10} color={cl.ts}/> {new Date(item.created_at).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}</Text>
                     <View style={ss.ca}>
                         <TouchableOpacity style={[ss.vis,{backgroundColor:item.hidden?'rgba(239,68,68,0.1)':'rgba(99,102,241,0.1)',borderColor:item.hidden?'rgba(239,68,68,0.3)':'rgba(99,102,241,0.3)'}]} onPress={()=>toggleVis(item.id)}><FontAwesome5 name={item.hidden?'lock':'shield-alt'} size={12} color={item.hidden?cl.dg:cl.pr}/></TouchableOpacity>
                         <TouchableOpacity style={ss.be} onPress={()=>router.push({pathname:'/course',params:{id:item.id}})}><FontAwesome5 name="eye" size={14} color="#fff"/><Text style={ss.bt}> Voir</Text></TouchableOpacity>
