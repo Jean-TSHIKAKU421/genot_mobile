@@ -57,7 +57,7 @@
   "expo": {
     "doctor": {
       "reactNativeDirectoryCheck": {
-        "exclude": [],
+        "exclude": ["expo-av"],
         "listUnknownPackages": false
       }
     }
