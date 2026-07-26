@@ -1,112 +1,51 @@
+// ==========================================
+// trash.tsx
+// ==========================================
 import { useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, FlatList, Alert } from 'react-native';
+import { FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect } from 'expo-router';
 
 const API_URL = 'https://jtt.alwaysdata.net/api';
 
+async function apiFetch(url, options = {}) {
+    const token = await AsyncStorage.getItem('token');
+    const headers = { ...options.headers };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (!(options.body instanceof FormData)) headers['Content-Type'] = 'application/json';
+    return fetch(url, { ...options, headers });
+}
+
 export default function TrashScreen() {
-    const [courses, setCourses] = useState([]);
-    const [notes, setNotes] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [theme, setTheme] = useState('dark');
-
-    const isDark = theme === 'dark';
-    const colors = {
-        bg: isDark ? '#020617' : '#f0f2f5', card: isDark ? '#0f172a' : '#ffffff',
-        text: isDark ? '#f1f5f9' : '#1a1a2e', textSec: isDark ? '#94a3b8' : '#64748b',
-        border: isDark ? 'rgba(99,102,241,0.2)' : '#e2e8f0', inputBg: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc',
-        primary: '#6366f1', success: '#10b981', danger: '#ef4444',
-    };
-
-    useFocusEffect(useCallback(() => { loadTrash(); }, []));
-
-    const loadTrash = async () => {
-        const u = await AsyncStorage.getItem('currentUser');
-        if (!u) { router.replace('/'); return; }
-        const user = JSON.parse(u);
-        try {
-            const r = await fetch(`${API_URL}/trash/${user.matricule}`);
-            const d = await r.json();
-            if (d.success) { setCourses(d.courses); setNotes(d.notes); }
-        } catch (e) {}
-        setLoading(false);
-    };
-
-    const restoreItem = async (type, id) => {
-        try {
-            await fetch(`${API_URL}/trash/restore/${type}/${id}`, { method: 'POST' });
-            loadTrash();
-        } catch (e) { Alert.alert('Erreur', 'Impossible de restaurer.'); }
-    };
-
-    const permanentDelete = (type, id) => {
-        Alert.alert('⚠️ Suppression définitive', 'Cette action est irréversible !', [
-            { text: 'Annuler', style: 'cancel' },
-            { text: 'Supprimer', style: 'destructive', onPress: async () => {
-                await fetch(`${API_URL}/trash/permanent/${type}/${id}`, { method: 'DELETE' });
-                loadTrash();
-            }},
-        ]);
-    };
-
-    const emptyTrash = () => {
-        Alert.alert('⚠️ Vider la corbeille', 'Tout supprimer définitivement ?', [
-            { text: 'Annuler', style: 'cancel' },
-            { text: 'Vider', style: 'destructive', onPress: async () => {
-                const u = await AsyncStorage.getItem('currentUser');
-                const user = JSON.parse(u);
-                await fetch(`${API_URL}/trash/empty/${user.matricule}`, { method: 'POST' });
-                loadTrash();
-            }},
-        ]);
-    };
-
-    const totalItems = courses.length + notes.length;
-
-    if (loading) return <View style={[styles.container, { backgroundColor: colors.bg }]}><Text style={{ color: colors.text, textAlign: 'center', marginTop: 100 }}>Chargement...</Text></View>;
-
-    return (
-        <View style={[styles.container, { backgroundColor: colors.bg }]}>
-            <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-                <TouchableOpacity onPress={() => router.back()}><Text style={{ color: colors.primary, fontSize: 16 }}>← Retour</Text></TouchableOpacity>
-                <Text style={[styles.headerTitle, { color: colors.text }]}>🗑️ Corbeille</Text>
-                {totalItems > 0 ? (
-                    <TouchableOpacity onPress={emptyTrash}><Text style={{ color: colors.danger, fontSize: 13 }}>Vider</Text></TouchableOpacity>
-                ) : <View style={{ width: 40 }} />}
+    const [cs,scs] = useState([]); const [ns,sns] = useState([]); const [ld,sld] = useState(true); const [th,sth] = useState('dark');
+    const dk=th==='dark';const cl={bg:dk?'#020617':'#f0f2f5',cd:dk?'#0f172a':'#ffffff',tx:dk?'#f1f5f9':'#1a1a2e',ts:dk?'#94a3b8':'#64748b',bd:dk?'rgba(99,102,241,0.2)':'#e2e8f0',ib:dk?'rgba(255,255,255,0.05)':'#f8fafc',pr:'#6366f1',sc:'#10b981',dg:'#ef4444'};
+    useFocusEffect(useCallback(()=>{ld2()},[]));
+    const ld2=async()=>{const u=await AsyncStorage.getItem('currentUser');if(!u){router.replace('/');return}const ud=JSON.parse(u);try{const r=await apiFetch(`${API_URL}/trash/${ud.matricule}`);const d=await r.json();if(d.success){scs(d.courses);sns(d.notes)}}catch(e){}sld(false)};
+    const ri=async(t,id)=>{try{await apiFetch(`${API_URL}/trash/restore/${t}/${id}`,{method:'POST'});ld2()}catch(e){Alert.alert('Erreur','Impossible de restaurer.')}};
+    const pd=(t,id)=>{Alert.alert('Suppression définitive','Cette action est irréversible !',[{text:'Annuler',style:'cancel'},{text:'Supprimer',style:'destructive',onPress:async()=>{await apiFetch(`${API_URL}/trash/permanent/${t}/${id}`,{method:'DELETE'});ld2()}}])};
+    const et=()=>{Alert.alert('Vider la corbeille','Tout supprimer définitivement ?',[{text:'Annuler',style:'cancel'},{text:'Vider',style:'destructive',onPress:async()=>{const u=await AsyncStorage.getItem('currentUser');const ud=JSON.parse(u);await apiFetch(`${API_URL}/trash/empty/${ud.matricule}`,{method:'POST'});ld2()}}])};
+    const ti=cs.length+ns.length;
+    if(ld)return<View style={[ss.ct,{backgroundColor:cl.bg}]}><Text style={{color:cl.tx,textAlign:'center',marginTop:100}}>Chargement...</Text></View>;
+    return(
+        <View style={[ss.ct,{backgroundColor:cl.bg}]}>
+            <View style={[ss.hd,{backgroundColor:cl.cd,borderBottomColor:cl.bd}]}>
+                <TouchableOpacity onPress={()=>router.back()} style={ss.hb}><FontAwesome5 name="arrow-left" size={18} color={cl.pr}/></TouchableOpacity>
+                <Text style={[ss.ht,{color:cl.tx}]}><FontAwesome5 name="trash-alt" size={16} color={cl.pr}/> Corbeille</Text>
+                {ti>0?<TouchableOpacity onPress={et}><Text style={{color:cl.dg,fontSize:13,fontWeight:'600'}}>Vider</Text></TouchableOpacity>:<View style={{width:40}}/>}
             </View>
-
-            <FlatList
-                data={[...courses.map(c => ({ ...c, itemType: 'course' })), ...notes.map(n => ({ ...n, itemType: 'note' }))]}
-                keyExtractor={item => `${item.itemType}-${item.id}`}
-                contentContainerStyle={styles.list}
-                ListEmptyComponent={
-                    <View style={[styles.emptyState, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                        <Text style={styles.emptyIcon}>📭</Text>
-                        <Text style={[styles.emptyTitle, { color: colors.text }]}>Corbeille vide</Text>
-                        <Text style={[styles.emptyText, { color: colors.textSec }]}>Aucun élément supprimé</Text>
-                    </View>
-                }
-                renderItem={({ item }) => (
-                    <View style={[styles.trashItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                        <View style={styles.trashIcon}>
-                            <Text style={{ fontSize: 24 }}>{item.itemType === 'course' ? '📚' : '📝'}</Text>
+            <FlatList data={[...cs.map(c=>({...c,it:'course'})),...ns.map(n=>({...n,it:'note'}))]} keyExtractor={item=>`${item.it}-${item.id}`} contentContainerStyle={ss.ls}
+                ListEmptyComponent={<View style={[ss.es,{backgroundColor:cl.cd,borderColor:cl.bd}]}><FontAwesome5 name="trash-alt" size={50} color={cl.ts} style={{marginBottom:12}}/><Text style={[ss.et,{color:cl.tx}]}>Corbeille vide</Text><Text style={[ss.etx,{color:cl.ts}]}>Aucun élément supprimé</Text></View>}
+                renderItem={({item})=>(
+                    <View style={[ss.ti,{backgroundColor:cl.cd,borderColor:cl.bd}]}>
+                        <View style={[ss.tic,{backgroundColor:item.it==='course'?'rgba(99,102,241,0.1)':'rgba(16,185,129,0.1)'}]}><FontAwesome5 name={item.it==='course'?'book':'sticky-note'} size={20} color={item.it==='course'?cl.pr:cl.sc}/></View>
+                        <View style={ss.tif}>
+                            <Text style={[ss.tit,{color:cl.tx}]} numberOfLines={1}>{item.title}</Text>
+                            <Text style={[ss.tim,{color:cl.ts}]}>{item.it==='course'?'Cours':`Cours: ${item.course_title||''}`} • {new Date(item.deleted_at).toLocaleDateString('fr-FR')}</Text>
                         </View>
-                        <View style={styles.trashInfo}>
-                            <Text style={[styles.trashTitle, { color: colors.text }]} numberOfLines={1}>
-                                {item.itemType === 'course' ? item.title : item.title}
-                            </Text>
-                            <Text style={[styles.trashMeta, { color: colors.textSec }]}>
-                                {item.itemType === 'course' ? 'Cours' : `Cours: ${item.course_title || ''}`} • {new Date(item.deleted_at).toLocaleDateString('fr-FR')}
-                            </Text>
-                        </View>
-                        <View style={styles.trashActions}>
-                            <TouchableOpacity style={[styles.restoreBtn, { backgroundColor: colors.success }]} onPress={() => restoreItem(item.itemType, item.id)}>
-                                <Text style={styles.restoreBtnText}>↩️</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={[styles.deleteBtn, { backgroundColor: colors.danger }]} onPress={() => permanentDelete(item.itemType, item.id)}>
-                                <Text style={styles.deleteBtnText}>🗑️</Text>
-                            </TouchableOpacity>
+                        <View style={ss.tia}>
+                            <TouchableOpacity style={[ss.rbn,{backgroundColor:cl.sc}]} onPress={()=>ri(item.it,item.id)}><FontAwesome5 name="undo" size={14} color="#fff"/></TouchableOpacity>
+                            <TouchableOpacity style={[ss.dbn,{backgroundColor:cl.dg}]} onPress={()=>pd(item.it,item.id)}><FontAwesome5 name="trash-alt" size={14} color="#fff"/></TouchableOpacity>
                         </View>
                     </View>
                 )}
@@ -115,23 +54,10 @@ export default function TrashScreen() {
     );
 }
 
-const styles = StyleSheet.create({
-    container: { flex: 1 },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, paddingTop: 50, borderBottomWidth: 1 },
-    headerTitle: { fontSize: 18, fontWeight: '700' },
-    list: { padding: 14, paddingBottom: 40 },
-    trashItem: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14, marginBottom: 8, borderWidth: 1 },
-    trashIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(99,102,241,0.1)', justifyContent: 'center', alignItems: 'center' },
-    trashInfo: { flex: 1 },
-    trashTitle: { fontSize: 14, fontWeight: '600', marginBottom: 2 },
-    trashMeta: { fontSize: 11 },
-    trashActions: { flexDirection: 'row', gap: 6 },
-    restoreBtn: { width: 38, height: 38, borderRadius: 19, justifyContent: 'center', alignItems: 'center' },
-    restoreBtnText: { fontSize: 16 },
-    deleteBtn: { width: 38, height: 38, borderRadius: 19, justifyContent: 'center', alignItems: 'center' },
-    deleteBtnText: { fontSize: 14 },
-    emptyState: { alignItems: 'center', padding: 50, borderRadius: 20, borderWidth: 1 },
-    emptyIcon: { fontSize: 50, marginBottom: 12 },
-    emptyTitle: { fontSize: 18, fontWeight: '700', marginBottom: 6 },
-    emptyText: { fontSize: 13 },
+const ss=StyleSheet.create({
+    ct:{flex:1},hd:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',padding:14,paddingTop:50,borderBottomWidth:1},hb:{width:40,height:40,justifyContent:'center',alignItems:'center'},ht:{fontSize:18,fontWeight:'700'},
+    ls:{padding:14,paddingBottom:40},ti:{flexDirection:'row',alignItems:'center',gap:12,padding:14,borderRadius:14,marginBottom:8,borderWidth:1},
+    tic:{width:44,height:44,borderRadius:12,justifyContent:'center',alignItems:'center'},tif:{flex:1},tit:{fontSize:14,fontWeight:'600',marginBottom:2},tim:{fontSize:11},
+    tia:{flexDirection:'row',gap:6},rbn:{width:38,height:38,borderRadius:19,justifyContent:'center',alignItems:'center'},dbn:{width:38,height:38,borderRadius:19,justifyContent:'center',alignItems:'center'},
+    es:{alignItems:'center',padding:50,borderRadius:20,borderWidth:1},et:{fontSize:18,fontWeight:'700',marginBottom:6},etx:{fontSize:13},
 });

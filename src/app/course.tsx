@@ -10,6 +10,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { WebView } from 'react-native-webview';
+import { Audio } from 'expo-av';
 import ModalConfirm from '../components/ModalConfirm';
 
 const API_URL='https://jtt.alwaysdata.net/api', CL_URL='https://api.cloudinary.com/v1_1/dfosclwrp/auto/upload', CL_UP='genotApp';
@@ -41,7 +42,7 @@ const AudioBars=({color,playing})=>{
         }else{animValues.forEach(a=>a.setValue(0))}
         return ()=>{animValues.forEach(a=>a.stopAnimation())}
     },[playing]);
-    return(<View style={{flexDirection:'row',alignItems:'flex-end',gap:5,height:80}}>{bars.map((h,i)=>(<Animated.View key={i} style={{width:5,backgroundColor:color,borderRadius:3,height:animValues[i].interpolate({inputRange:[0,1],outputRange:[5,h*60]})}}/>))}</View>)
+    return(<View style={{flexDirection:'row',alignItems:'flex-end',gap:5,height:50}}>{bars.map((h,i)=>(<Animated.View key={i} style={{width:4,backgroundColor:color,borderRadius:2,height:animValues[i].interpolate({inputRange:[0,1],outputRange:[4,h*40]})}}/>))}</View>)
 };
 
 export default function CourseScreen(){
@@ -55,6 +56,8 @@ export default function CourseScreen(){
     const [th,sth]=useState('dark'), [msg,smsg]=useState(''), [mty,smty]=useState('');
     const [pdfUrl,spdfUrl]=useState(null), [pdfVisible,spdfVisible]=useState(false);
     const [audioUrl,setAudioUrl]=useState(null), [audioVisible,setAudioVisible]=useState(false), [audioTitle,setAudioTitle]=useState('');
+    const [audioMini,setAudioMini]=useState(false); const [audioPos,setAudioPos]=useState({x:16,y:120}); const [dragging,setDragging]=useState(false); const dragOffset=useRef({x:0,y:0});
+    const [audioSound,setAudioSound]=useState(null); const [audioProgress,setAudioProgress]=useState(0);
     const [audioMode,setAudioMode]=useState(null), [recordVisible,setRecordVisible]=useState(false), [isRec,setIsRec]=useState(false), [isPlaying,setIsPlaying]=useState(false);
     const [dlProgress,sdlProgress]=useState(0), [dlVisible,sdlVisible]=useState(false), [dlMsg,sdlMsg]=useState('');
     const [vaultActive,svaultActive]=useState(false);
@@ -64,7 +67,7 @@ export default function CourseScreen(){
     
     const dk=th==='dark', cl={bg:dk?'#020617':'#f0f2f5', cd:dk?'#0f172a':'#ffffff', tx:dk?'#f1f5f9':'#1a1a2e', ts:dk?'#94a3b8':'#64748b', bd:dk?'rgba(99,102,241,0.2)':'#e2e8f0', ib:dk?'rgba(255,255,255,0.05)':'#f8fafc', pr:'#6366f1', dg:'#ef4444', sc:'#10b981', wn:'#f59e0b', cy:'#06b6d4'};
     
-    useFocusEffect(useCallback(()=>{ld()},[id]));
+    useFocusEffect(useCallback(()=>{ld();return ()=>{if(audioSound){audioSound.unloadAsync().catch(()=>{})}}},[id]));
     
     const ld=async()=>{
         try{
@@ -80,7 +83,32 @@ export default function CourseScreen(){
     const fn=(type)=>nt.filter(n=>n.type===type&&(!st2||(n.title||'').toLowerCase().includes(st2.toLowerCase())||(n.content||'').toLowerCase().includes(st2.toLowerCase())));
     
     const openPdf=(url)=>{if(!url)return;spdfUrl(`https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(url)}`);spdfVisible(true)};
-    const playAudio=(item)=>{if(!item.file_url)return;setAudioTitle(item.title||'Audio');setAudioUrl(item.file_url);setAudioVisible(true);setIsPlaying(true)};
+    
+    const playAudio=async(item)=>{
+        if(!item.file_url)return;
+        if(audioSound){await audioSound.unloadAsync();setAudioSound(null)}
+        setAudioTitle(item.title||'Audio');setAudioUrl(item.file_url);setAudioVisible(true);setIsPlaying(true);setAudioMini(false);setAudioPos({x:16,y:120});setAudioProgress(0);
+        try{
+            const {sound}=await Audio.Sound.createAsync({uri:item.file_url},{shouldPlay:true,progressUpdateIntervalMillis:200});
+            setAudioSound(sound);
+            sound.setOnPlaybackStatusUpdate((status)=>{
+                if(status.isLoaded){
+                    setAudioProgress(status.positionMillis/status.durationMillis);
+                    if(status.didJustFinish){setIsPlaying(false);setAudioProgress(1)}
+                }
+            });
+        }catch(e){Alert.alert('Erreur','Impossible de lire cet audio.')}
+    };
+    
+    const togglePlayPause=async()=>{
+        if(!audioSound)return;
+        const status=await audioSound.getStatusAsync();
+        if(status.isPlaying){await audioSound.pauseAsync();setIsPlaying(false)}else{await audioSound.playAsync();setIsPlaying(true)}
+    };
+    
+    const seekAudio=async(percent)=>{if(audioSound){const status=await audioSound.getStatusAsync();const pos=status.durationMillis*percent;await audioSound.setPositionAsync(pos);setAudioProgress(percent)}};
+    
+    const stopAudio=()=>{if(audioSound){audioSound.unloadAsync();setAudioSound(null)}setAudioVisible(false);setAudioUrl(null);setIsPlaying(false);setAudioMini(false)};
     
     const downloadFile=async(url,filename)=>{
         sdlVisible(true);sdlProgress(0);sdlMsg('Téléchargement...');
@@ -106,10 +134,10 @@ export default function CourseScreen(){
     if(!co)return<View style={[ss.ct,{backgroundColor:cl.bg}]}><Text style={{color:cl.tx,textAlign:'center',marginTop:100}}>Chargement...</Text></View>;
     
     const tabs=[
-        {key:'supports',label:'📄 Supports',data:fn('support'),render:({item})=>(<View style={[ss.ic,{backgroundColor:cl.cd,borderColor:cl.bd}]}><TouchableOpacity style={{flex:1,flexDirection:'row',alignItems:'center',gap:10}} onPress={()=>item.file_url?openPdf(item.file_url):null}><View style={[ss.ii2,{backgroundColor:'rgba(239,68,68,0.1)'}]}><FontAwesome5 name="file-pdf" size={18} color={cl.dg}/></View><View style={ss.if}><Text style={[ss.it,{color:cl.tx}]} numberOfLines={1}>{item.title}</Text><Text style={[ss.is,{color:cl.ts}]} numberOfLines={1}>{item.content||'Document'}</Text></View></TouchableOpacity><View style={ss.ia}><TouchableOpacity onPress={()=>toggleVis('note',item)} style={ss.ibn}><FontAwesome5 name={item.hidden?'lock':'shield-alt'} size={16} color={item.hidden?cl.dg:cl.pr}/></TouchableOpacity><TouchableOpacity onPress={()=>openEditSupport(item)} style={ss.ibn}><FontAwesome5 name="edit" size={16} color={cl.wn}/></TouchableOpacity><TouchableOpacity onPress={()=>di(item.id)} style={ss.ibn}><FontAwesome5 name="trash-alt" size={16} color={cl.ts}/></TouchableOpacity>{item.file_url?<TouchableOpacity onPress={()=>downloadFile(item.file_url,item.title+'.pdf')} style={ss.ibn}><FontAwesome5 name="download" size={16} color={cl.sc}/></TouchableOpacity>:null}</View></View>)},
-        {key:'links',label:'🔗 Liens',data:fn('link'),render:({item})=>(<View style={[ss.ic,{backgroundColor:cl.cd,borderColor:cl.bd}]}><View style={{flex:1,flexDirection:'row',alignItems:'center',gap:10}}><View style={[ss.ii2,{backgroundColor:'rgba(6,182,212,0.1)'}]}><FontAwesome5 name="link" size={18} color={cl.cy}/></View><View style={ss.if}><Text style={[ss.it,{color:cl.tx}]} numberOfLines={1}>{item.title}</Text><Text style={[ss.is,{color:cl.pr}]} numberOfLines={1}>{item.content||'#'}</Text></View></View><View style={ss.ia}><TouchableOpacity onPress={()=>toggleVis('note',item)} style={ss.ibn}><FontAwesome5 name={item.hidden?'lock':'shield-alt'} size={16} color={item.hidden?cl.dg:cl.pr}/></TouchableOpacity><TouchableOpacity onPress={()=>di(item.id)} style={ss.ibn}><FontAwesome5 name="trash-alt" size={16} color={cl.ts}/></TouchableOpacity><TouchableOpacity onPress={()=>Linking.openURL(item.content.startsWith('http')?item.content:'https://'+item.content)} style={ss.ibn}><FontAwesome5 name="external-link-alt" size={16} color={cl.sc}/></TouchableOpacity></View></View>)},
-        {key:'notes',label:'📝 Notes',data:fn('note'),render:({item})=>(<View style={[ss.ic,{backgroundColor:cl.cd,borderColor:cl.bd,borderLeftWidth:3,borderLeftColor:cl.pr}]}><View style={{flex:1,flexDirection:'row',alignItems:'center',gap:10}}><View style={[ss.ii2,{backgroundColor:'rgba(16,185,129,0.1)'}]}><FontAwesome5 name="sticky-note" size={18} color={cl.sc}/></View><View style={ss.if}><Text style={[ss.it,{color:cl.tx}]} numberOfLines={1}>{item.title}</Text><Text style={[ss.is,{color:cl.ts}]} numberOfLines={2}>{item.content?.replace(/<[^>]*>/g,'').substring(0,80)||'Note vide'}</Text></View></View><View style={ss.ia}><TouchableOpacity onPress={()=>toggleVis('note',item)} style={ss.ibn}><FontAwesome5 name={item.hidden?'lock':'shield-alt'} size={16} color={item.hidden?cl.dg:cl.pr}/></TouchableOpacity><TouchableOpacity onPress={()=>openEditNote(item)} style={ss.ibn}><FontAwesome5 name="edit" size={16} color={cl.wn}/></TouchableOpacity><TouchableOpacity onPress={()=>di(item.id)} style={ss.ibn}><FontAwesome5 name="trash-alt" size={16} color={cl.ts}/></TouchableOpacity><TouchableOpacity onPress={()=>{setReadNote({visible:true,title:item.title,content:item.content?.replace(/<[^>]*>/g,'')||''})}} style={ss.ibn}><FontAwesome5 name="eye" size={16} color={cl.ts}/></TouchableOpacity></View></View>)},
-        {key:'audios',label:'🎙️ Audios',data:fn('audio'),render:({item})=>(<View style={[ss.ic,{backgroundColor:cl.cd,borderColor:cl.bd}]}><View style={{flex:1,flexDirection:'row',alignItems:'center',gap:10}}><View style={[ss.ii2,{backgroundColor:'rgba(168,85,247,0.1)'}]}><FontAwesome5 name="microphone" size={18} color="#a855f7"/></View><View style={ss.if}><Text style={[ss.it,{color:cl.tx}]} numberOfLines={1}>{item.title}</Text><Text style={[ss.is,{color:cl.ts}]} numberOfLines={1}>{item.content||'Audio'}</Text></View></View><View style={ss.ia}><TouchableOpacity onPress={()=>toggleVis('note',item)} style={ss.ibn}><FontAwesome5 name={item.hidden?'lock':'shield-alt'} size={16} color={item.hidden?cl.dg:cl.pr}/></TouchableOpacity><TouchableOpacity onPress={()=>di(item.id)} style={ss.ibn}><FontAwesome5 name="trash-alt" size={16} color={cl.ts}/></TouchableOpacity>{item.file_url?<><TouchableOpacity onPress={()=>playAudio(item)} style={ss.ibn}><FontAwesome5 name="play" size={16} color={cl.pr}/></TouchableOpacity><TouchableOpacity onPress={()=>downloadFile(item.file_url,item.title+'.mp3')} style={ss.ibn}><FontAwesome5 name="download" size={16} color={cl.sc}/></TouchableOpacity></>:null}</View></View>)}
+        {key:'supports',label:'Supports',data:fn('support'),render:({item})=>(<View style={[ss.ic,{backgroundColor:cl.cd,borderColor:cl.bd}]}><TouchableOpacity style={{flex:1,flexDirection:'row',alignItems:'center',gap:10}} onPress={()=>item.file_url?openPdf(item.file_url):null}><View style={[ss.ii2,{backgroundColor:'rgba(239,68,68,0.1)'}]}><FontAwesome5 name="file-pdf" size={18} color={cl.dg}/></View><View style={ss.if}><Text style={[ss.it,{color:cl.tx}]} numberOfLines={1}>{item.title}</Text><Text style={[ss.is,{color:cl.ts}]} numberOfLines={1}>{item.content||'Document'}</Text></View></TouchableOpacity><View style={ss.ia}><TouchableOpacity onPress={()=>toggleVis('note',item)} style={ss.ibn}><FontAwesome5 name={item.hidden?'lock':'shield-alt'} size={16} color={item.hidden?cl.dg:cl.pr}/></TouchableOpacity><TouchableOpacity onPress={()=>openEditSupport(item)} style={ss.ibn}><FontAwesome5 name="edit" size={16} color={cl.wn}/></TouchableOpacity><TouchableOpacity onPress={()=>di(item.id)} style={ss.ibn}><FontAwesome5 name="trash-alt" size={16} color={cl.ts}/></TouchableOpacity>{item.file_url?<TouchableOpacity onPress={()=>downloadFile(item.file_url,item.title+'.pdf')} style={ss.ibn}><FontAwesome5 name="download" size={16} color={cl.sc}/></TouchableOpacity>:null}</View></View>)},
+        {key:'links',label:'Liens',data:fn('link'),render:({item})=>(<View style={[ss.ic,{backgroundColor:cl.cd,borderColor:cl.bd}]}><View style={{flex:1,flexDirection:'row',alignItems:'center',gap:10}}><View style={[ss.ii2,{backgroundColor:'rgba(6,182,212,0.1)'}]}><FontAwesome5 name="link" size={18} color={cl.cy}/></View><View style={ss.if}><Text style={[ss.it,{color:cl.tx}]} numberOfLines={1}>{item.title}</Text><Text style={[ss.is,{color:cl.pr}]} numberOfLines={1}>{item.content||'#'}</Text></View></View><View style={ss.ia}><TouchableOpacity onPress={()=>toggleVis('note',item)} style={ss.ibn}><FontAwesome5 name={item.hidden?'lock':'shield-alt'} size={16} color={item.hidden?cl.dg:cl.pr}/></TouchableOpacity><TouchableOpacity onPress={()=>di(item.id)} style={ss.ibn}><FontAwesome5 name="trash-alt" size={16} color={cl.ts}/></TouchableOpacity><TouchableOpacity onPress={()=>Linking.openURL(item.content.startsWith('http')?item.content:'https://'+item.content)} style={ss.ibn}><FontAwesome5 name="external-link-alt" size={16} color={cl.sc}/></TouchableOpacity></View></View>)},
+        {key:'notes',label:'Notes',data:fn('note'),render:({item})=>(<View style={[ss.ic,{backgroundColor:cl.cd,borderColor:cl.bd,borderLeftWidth:3,borderLeftColor:cl.pr}]}><View style={{flex:1,flexDirection:'row',alignItems:'center',gap:10}}><View style={[ss.ii2,{backgroundColor:'rgba(16,185,129,0.1)'}]}><FontAwesome5 name="sticky-note" size={18} color={cl.sc}/></View><View style={ss.if}><Text style={[ss.it,{color:cl.tx}]} numberOfLines={1}>{item.title}</Text><Text style={[ss.is,{color:cl.ts}]} numberOfLines={2}>{item.content?.replace(/<[^>]*>/g,'').substring(0,80)||'Note vide'}</Text></View></View><View style={ss.ia}><TouchableOpacity onPress={()=>toggleVis('note',item)} style={ss.ibn}><FontAwesome5 name={item.hidden?'lock':'shield-alt'} size={16} color={item.hidden?cl.dg:cl.pr}/></TouchableOpacity><TouchableOpacity onPress={()=>openEditNote(item)} style={ss.ibn}><FontAwesome5 name="edit" size={16} color={cl.wn}/></TouchableOpacity><TouchableOpacity onPress={()=>di(item.id)} style={ss.ibn}><FontAwesome5 name="trash-alt" size={16} color={cl.ts}/></TouchableOpacity><TouchableOpacity onPress={()=>{setReadNote({visible:true,title:item.title,content:item.content?.replace(/<[^>]*>/g,'')||''})}} style={ss.ibn}><FontAwesome5 name="eye" size={16} color={cl.ts}/></TouchableOpacity></View></View>)},
+        {key:'audios',label:'Audios',data:fn('audio'),render:({item})=>(<View style={[ss.ic,{backgroundColor:cl.cd,borderColor:cl.bd}]}><View style={{flex:1,flexDirection:'row',alignItems:'center',gap:10}}><View style={[ss.ii2,{backgroundColor:'rgba(168,85,247,0.1)'}]}><FontAwesome5 name="microphone" size={18} color="#a855f7"/></View><View style={ss.if}><Text style={[ss.it,{color:cl.tx}]} numberOfLines={1}>{item.title}</Text><Text style={[ss.is,{color:cl.ts}]} numberOfLines={1}>{item.content||'Audio'}</Text></View></View><View style={ss.ia}><TouchableOpacity onPress={()=>toggleVis('note',item)} style={ss.ibn}><FontAwesome5 name={item.hidden?'lock':'shield-alt'} size={16} color={item.hidden?cl.dg:cl.pr}/></TouchableOpacity><TouchableOpacity onPress={()=>di(item.id)} style={ss.ibn}><FontAwesome5 name="trash-alt" size={16} color={cl.ts}/></TouchableOpacity>{item.file_url?<><TouchableOpacity onPress={()=>playAudio(item)} style={[ss.ibn,isPlaying&&audioUrl===item.file_url&&{backgroundColor:'rgba(168,85,247,0.2)'}]}><FontAwesome5 name={isPlaying&&audioUrl===item.file_url?'pause':'play'} size={16} color="#a855f7"/></TouchableOpacity><TouchableOpacity onPress={()=>downloadFile(item.file_url,item.title+'.mp3')} style={ss.ibn}><FontAwesome5 name="download" size={16} color={cl.sc}/></TouchableOpacity></>:null}</View></View>)}
     ];
     
     const ac=tabs.find(t=>t.key===ct)||tabs[0];
@@ -123,31 +151,42 @@ export default function CourseScreen(){
         
         <View style={[ss.sb2,{backgroundColor:cl.ib,borderColor:cl.bd}]}><FontAwesome5 name="search" size={14} color={cl.ts} style={{marginRight:8}}/><TextInput style={[ss.si,{color:cl.tx}]} placeholder="Titre..." placeholderTextColor={cl.ts} value={st2} onChangeText={sst2}/>{st2.length>0&&<TouchableOpacity onPress={()=>sst2('')}><FontAwesome5 name="times" size={14} color={cl.ts} style={{marginLeft:8}}/></TouchableOpacity>}</View>
         
-        <View style={ss.tb}>{tabs.map(t=>(<TouchableOpacity key={t.key} style={[ss.ti,ct===t.key&&{backgroundColor:cl.pr+'20'}]} onPress={()=>sct(t.key)}><Text style={[ss.tt,{color:ct===t.key?cl.pr:cl.ts}]}>{t.label}</Text></TouchableOpacity>))}</View>
+        <View style={ss.tb}>{tabs.map(t=>(<TouchableOpacity key={t.key} style={[ss.ti,ct===t.key&&{backgroundColor:cl.pr+'20'}]} onPress={()=>sct(t.key)}><FontAwesome5 name={t.key==='supports'?'file-pdf':t.key==='links'?'link':t.key==='notes'?'sticky-note':'microphone'} size={12} color={ct===t.key?cl.pr:cl.ts}/><Text style={[ss.tt,{color:ct===t.key?cl.pr:cl.ts}]}> {t.label}</Text></TouchableOpacity>))}</View>
         
         <FlatList data={ac.data} renderItem={ac.render} keyExtractor={item=>item.id.toString()} contentContainerStyle={ss.ls} ListEmptyComponent={<View style={[ss.em2,{backgroundColor:cl.cd,borderColor:cl.bd}]}><FontAwesome5 name="folder-open" size={50} color={cl.ts} style={{marginBottom:12}}/><Text style={{color:cl.ts,fontSize:14}}>Aucun élément</Text></View>}/>
         
         <Modal visible={pdfVisible} transparent animationType="slide" onRequestClose={()=>{spdfVisible(false);spdfUrl(null)}}>
-            <View style={[ss.pdfContainer,{backgroundColor:cl.bg}]}><View style={[ss.pdfHeader,{borderBottomColor:cl.bd}]}><TouchableOpacity onPress={()=>{spdfVisible(false);spdfUrl(null)}}><FontAwesome5 name="times" size={20} color={cl.ts}/></TouchableOpacity><Text style={{color:cl.tx,fontWeight:'600',fontSize:14,flex:1,textAlign:'center'}} numberOfLines={1}>Lecteur PDF</Text><TouchableOpacity onPress={()=>{if(pdfUrl)Alert.alert('Télécharger','Voulez-vous télécharger ce document ?',[{text:'Annuler',style:'cancel'},{text:'Télécharger',onPress:()=>downloadFile(pdfUrl,'document.pdf')}]);}}><FontAwesome5 name="download" size={18} color={cl.pr}/></TouchableOpacity></View>
+            <View style={[ss.pdfContainer,{backgroundColor:cl.bg}]}><View style={[ss.pdfHeader,{borderBottomColor:cl.bd}]}><TouchableOpacity onPress={()=>{spdfVisible(false);spdfUrl(null)}}><FontAwesome5 name="times" size={20} color={cl.ts}/></TouchableOpacity><Text style={{color:cl.tx,fontWeight:'600',fontSize:14,flex:1,textAlign:'center'}} numberOfLines={1}><FontAwesome5 name="file-pdf" size={14} color={cl.pr}/> Lecteur PDF</Text><TouchableOpacity onPress={()=>{if(pdfUrl)Alert.alert('Télécharger','Voulez-vous télécharger ce document ?',[{text:'Annuler',style:'cancel'},{text:'Télécharger',onPress:()=>downloadFile(pdfUrl,'document.pdf')}]);}}><FontAwesome5 name="download" size={18} color={cl.pr}/></TouchableOpacity></View>
             {pdfUrl?<WebView source={{uri:pdfUrl}} style={{flex:1}} originWhitelist={['*']} javaScriptEnabled={true} domStorageEnabled={true} startInLoadingState={true} renderLoading={()=><View style={{flex:1,justifyContent:'center',alignItems:'center'}}><ActivityIndicator size="large" color={cl.pr}/><Text style={{color:cl.tx,marginTop:10}}>Chargement du PDF...</Text></View>}/>:<View style={{flex:1,justifyContent:'center',alignItems:'center'}}><Text style={{color:cl.tx}}>Aucun document à afficher</Text></View>}</View>
         </Modal>
         
-        <Modal visible={audioVisible} transparent animationType="slide" onRequestClose={()=>{setAudioVisible(false);setAudioUrl(null);setIsPlaying(false)}}>
-            <View style={[ss.audioModal,{backgroundColor:cl.bg}]}>
-                <View style={[ss.audioHeader,{borderBottomColor:cl.bd}]}><TouchableOpacity onPress={()=>{setAudioVisible(false);setAudioUrl(null);setIsPlaying(false)}}><FontAwesome5 name="chevron-down" size={20} color={cl.ts}/></TouchableOpacity><Text style={{color:cl.tx,fontWeight:'600',fontSize:14,flex:1,textAlign:'center'}} numberOfLines={1}><FontAwesome5 name="microphone" size={14} color={cl.pr}/> {audioTitle||'Lecteur Audio'}</Text><TouchableOpacity onPress={()=>{if(audioUrl)downloadFile(audioUrl,(audioTitle||'audio')+'.mp3')}}><FontAwesome5 name="download" size={18} color={cl.pr}/></TouchableOpacity></View>
-                {audioUrl?(
-                    <View style={{flex:1,justifyContent:'center',alignItems:'center',padding:30}}>
-                        <View style={ss.audioDisc}><View style={[ss.audioDiscInner,{backgroundColor:cl.pr+'20'}]}><FontAwesome5 name="headphones" size={50} color={cl.pr}/></View></View>
-                        <AudioBars color={cl.pr} playing={isPlaying}/>
-                        <Text style={{color:cl.tx,fontSize:22,fontWeight:'700',textAlign:'center',marginTop:20,marginBottom:6}} numberOfLines={1}>{audioTitle}</Text>
-                        <Text style={{color:cl.ts,fontSize:13,marginBottom:30}}><FontAwesome5 name="music" size={12} color={cl.pr}/> Lecture en cours...</Text>
-                        <View style={{width:'100%',borderRadius:20,overflow:'hidden',backgroundColor:cl.cd,borderWidth:1,borderColor:cl.bd,padding:4}}>
-                            <WebView source={{html:`<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>*{margin:0;padding:0}body{display:flex;justify-content:center;align-items:center;min-height:70px;background:transparent}audio{width:100%;outline:none;filter:sepia(20%) saturate(70%) hue-rotate(220deg)}audio::-webkit-media-controls-panel{background:transparent}audio::-webkit-media-controls-play-button{background:#6366f1;border-radius:50%;width:40px;height:40px}audio::-webkit-media-controls-current-time-display,audio::-webkit-media-controls-time-remaining-display{color:#f1f5f9;font-size:12px}audio::-webkit-media-controls-timeline{background:rgba(99,102,241,0.15);border-radius:10px;height:6px}audio::-webkit-media-controls-mute-button,audio::-webkit-media-controls-volume-slider{display:none}</style></head><body><audio controls autoplay><source src="${audioUrl}" type="audio/mpeg"></audio></body></html>`}} style={{width:'100%',height:70}} originWhitelist={['*']} javaScriptEnabled={true} domStorageEnabled={true} mediaPlaybackRequiresUserAction={false} scrollEnabled={false}/>
+        {audioVisible && audioUrl && (
+            <View style={[ss.audioFloating, audioMini && ss.audioFloatingMini, { top: audioPos.y, right: audioPos.x }]}>
+                <View style={[ss.audioFloatHeader]}
+                    onTouchStart={(e)=>{setDragging(true);dragOffset.current={x:e.nativeEvent.pageX-audioPos.x,y:e.nativeEvent.pageY-audioPos.y}}}
+                    onTouchMove={(e)=>{if(dragging)setAudioPos({x:Math.max(0,e.nativeEvent.pageX-dragOffset.current.x),y:Math.max(50,e.nativeEvent.pageY-dragOffset.current.y)})}}
+                    onTouchEnd={()=>setDragging(false)}>
+                    <TouchableOpacity onPress={stopAudio}><FontAwesome5 name="times" size={14} color="#fff"/></TouchableOpacity>
+                    <Text style={{color:'#fff',fontWeight:'600',fontSize:12,flex:1,textAlign:'center'}} numberOfLines={1}>{audioTitle}</Text>
+                    <TouchableOpacity onPress={()=>setAudioMini(!audioMini)}><FontAwesome5 name={audioMini?'expand':'minus'} size={12} color="#fff"/></TouchableOpacity>
+                </View>
+                {!audioMini&&(
+                    <View style={{padding:10,alignItems:'center',gap:8}}>
+                        <AudioBars color="#a855f7" playing={isPlaying}/>
+                        <View style={{flexDirection:'row',alignItems:'center',gap:10,width:'100%'}}>
+                            <TouchableOpacity onPress={togglePlayPause}><FontAwesome5 name={isPlaying?'pause-circle':'play-circle'} size={32} color="#a855f7"/></TouchableOpacity>
+                            <TouchableOpacity style={{flex:1}} onPress={(e)=>{const x=e.nativeEvent.locationX;const w=e.nativeEvent.target;seekAudio(x/w)}}>
+                                <View style={{height:6,backgroundColor:'rgba(168,85,247,0.2)',borderRadius:3,overflow:'hidden'}}>
+                                    <View style={{width:`${audioProgress*100}%`,height:'100%',backgroundColor:'#a855f7',borderRadius:3}}/>
+                                </View>
+                            </TouchableOpacity>
+                            <Text style={{color:'#a855f7',fontSize:10,fontWeight:'700',width:36,textAlign:'right'}}>{Math.floor(audioProgress*100)}%</Text>
+                            <TouchableOpacity onPress={()=>downloadFile(audioUrl,audioTitle+'.mp3')}><FontAwesome5 name="download" size={18} color="#a855f7"/></TouchableOpacity>
                         </View>
                     </View>
-                ):<View style={{flex:1,justifyContent:'center',alignItems:'center'}}><FontAwesome5 name="headphones" size={60} color={cl.ts}/><Text style={{color:cl.ts,marginTop:16,fontSize:16}}>Aucun audio à lire</Text></View>}
+                )}
             </View>
-        </Modal>
+        )}
         
         <Modal visible={recordVisible} transparent animationType="slide" onRequestClose={()=>{setRecordVisible(false);setIsRec(false)}}>
             <View style={[ss.audioModal,{backgroundColor:'#0f172a'}]}>
@@ -155,7 +194,7 @@ export default function CourseScreen(){
                 <View style={{flex:1,justifyContent:'center',alignItems:'center',padding:30}}>
                     <View style={[ss.recDisc,isRec&&{borderColor:cl.dg}]}><FontAwesome5 name="microphone" size={50} color={isRec?cl.dg:'#a855f7'}/></View>
                     <AudioBars color={isRec?cl.dg:'#a855f7'} playing={isRec}/>
-                    <Text style={{color:'#fff',fontSize:22,fontWeight:'700',textAlign:'center',marginTop:20}}>{isRec?'<FontAwesome5 name="circle" size={14} color={cl.dg}/> Enregistrement...':'Prêt à enregistrer'}</Text>
+                    <Text style={{color:'#fff',fontSize:22,fontWeight:'700',textAlign:'center',marginTop:20}}>{isRec?'Enregistrement...':'Prêt à enregistrer'}</Text>
                     <Text style={{color:'#94a3b8',fontSize:13,marginTop:6,marginBottom:30}}>{isRec?'Parlez maintenant...':'Appuyez pour démarrer'}</Text>
                     <TouchableOpacity style={[ss.recBtn,isRec&&{backgroundColor:cl.dg}]} onPress={()=>{if(recWebView.current){if(isRec){recWebView.current.injectJavaScript('stopRec()');setIsRec(false)}else{recWebView.current.injectJavaScript('startRec()')}}}}><FontAwesome5 name={isRec?'stop':'microphone'} size={24} color="#fff"/></TouchableOpacity>
                 </View>
@@ -211,9 +250,10 @@ const ss=StyleSheet.create({
     ibn:{padding:8,width:38,height:38,borderRadius:10,justifyContent:'center',alignItems:'center',backgroundColor:'rgba(255,255,255,0.05)',borderWidth:1,borderColor:'rgba(255,255,255,0.1)'},
     em2:{alignItems:'center',padding:50,borderRadius:16,borderWidth:1},
     pdfContainer:{flex:1}, pdfHeader:{flexDirection:'row',alignItems:'center',padding:14,paddingTop:48,borderBottomWidth:1,gap:12},
+    audioFloating:{position:'absolute',zIndex:9999,width:280,backgroundColor:'#0f172a',borderRadius:14,borderWidth:1,borderColor:'rgba(168,85,247,0.35)',overflow:'hidden',shadowColor:'#000',shadowOffset:{width:0,height:8},shadowOpacity:0.5,shadowRadius:20,elevation:12},
+    audioFloatingMini:{width:190},
+    audioFloatHeader:{flexDirection:'row',alignItems:'center',padding:10,gap:8,backgroundColor:'rgba(168,85,247,0.15)'},
     audioModal:{flex:1}, audioHeader:{flexDirection:'row',alignItems:'center',padding:14,paddingTop:48,borderBottomWidth:1,gap:12},
-    audioDisc:{width:120,height:120,borderRadius:60,borderWidth:3,borderColor:'rgba(99,102,241,0.3)',justifyContent:'center',alignItems:'center',marginBottom:25},
-    audioDiscInner:{width:80,height:80,borderRadius:40,justifyContent:'center',alignItems:'center'},
     recDisc:{width:120,height:120,borderRadius:60,borderWidth:4,borderColor:'rgba(168,85,247,0.4)',justifyContent:'center',alignItems:'center',marginBottom:25},
     recBtn:{width:70,height:70,borderRadius:35,backgroundColor:'#a855f7',justifyContent:'center',alignItems:'center',borderWidth:4,borderColor:'rgba(255,255,255,0.3)'},
     dlOverlay:{flex:1,backgroundColor:'rgba(0,0,0,0.7)',justifyContent:'center',alignItems:'center',padding:30}, dlCard:{width:'80%',borderRadius:16,padding:24,borderWidth:1}, dlBar:{height:8,borderRadius:4,overflow:'hidden'}, dlFill:{height:'100%',borderRadius:4},

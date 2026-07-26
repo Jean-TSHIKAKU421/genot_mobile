@@ -2,8 +2,7 @@
 // settings.tsx
 // ==========================================
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Alert, Modal, Linking } from 'react-native';
-import { Image } from 'expo-image';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Alert, Modal, Linking, Image } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect } from 'expo-router';
@@ -15,25 +14,27 @@ const API_URL = 'https://jtt.alwaysdata.net/api';
 const CL_URL = 'https://api.cloudinary.com/v1_1/dfosclwrp/image/upload';
 const CL_UP = 'genotApp';
 
-const uploadWithXHR = (uri, folder, publicId) => {
-    return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', CL_URL);
-        const fd = new FormData();
-        fd.append('file', { uri, type: 'image/jpeg', name: 'upload.jpg' } as any);
-        fd.append('upload_preset', CL_UP);
-        fd.append('folder', folder);
-        if (publicId) fd.append('public_id', publicId);
-        xhr.onload = () => { try { const cd = JSON.parse(xhr.responseText); resolve(cd.secure_url || null); } catch(e) { resolve(null); } };
-        xhr.onerror = () => reject(new Error('XHR failed'));
-        xhr.send(fd);
-    });
-};
+async function apiFetch(url, options = {}) {
+    const token = await AsyncStorage.getItem('token');
+    const headers = { ...options.headers };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (!(options.body instanceof FormData)) headers['Content-Type'] = 'application/json';
+    return fetch(url, { ...options, headers });
+}
+
+const uploadWithXHR = (uri, folder, publicId) => new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest(); xhr.open('POST', CL_URL);
+    const fd = new FormData(); fd.append('file', { uri, type: 'image/jpeg', name: 'upload.jpg' } as any);
+    fd.append('upload_preset', CL_UP); fd.append('folder', folder);
+    if (publicId) fd.append('public_id', publicId);
+    xhr.onload = () => { try { resolve(JSON.parse(xhr.responseText).secure_url || null) } catch(e) { resolve(null) } };
+    xhr.onerror = () => reject(new Error('XHR failed')); xhr.send(fd);
+});
 
 export default function SettingsScreen() {
     const [u,su] = useState(null); const [st,sst] = useState({c:0,n:0,p:0,l:0}); const [on,son] = useState(false); const [th,sth] = useState('dark');
     const [em,sem] = useState(false); const [et,set] = useState(''); const [ev,sev] = useState('');
-    const [di,sdi] = useState(0);
+    const [di,sdi] = useState(0); const [zoomVisible,setZoomVisible] = useState(false); const [zoomUrl,setZoomUrl] = useState('');
     const [vaultActive, svaultActive] = useState(false);
     const [showVaultPass, setShowVaultPass] = useState(false); const [vaultAction, setVaultAction] = useState('');
     const [showCreateVault, setShowCreateVault] = useState(false);
@@ -41,49 +42,58 @@ export default function SettingsScreen() {
     const dim = [require('../../assets/images/dev1.jpg'),require('../../assets/images/dev2.jpg'),require('../../assets/images/dev3.jpg'),require('../../assets/images/dev4.jpg'),require('../../assets/images/dev5.jpg'),require('../../assets/images/dev6.jpg')];
     useEffect(()=>{AsyncStorage.getItem('theme').then(t=>{if(t)sth(t)});const iv=setInterval(()=>{sdi(p=>(p+1)%dim.length)},4000);return()=>clearInterval(iv);},[]);
     const dk=th==='dark';const cl={bg:dk?'#020617':'#f0f2f5',cd:dk?'#0f172a':'#ffffff',ca:dk?'#1a1a2e':'#f8fafc',tx:dk?'#f1f5f9':'#1a1a2e',ts:dk?'#94a3b8':'#64748b',bd:dk?'rgba(99,102,241,0.2)':'#e2e8f0',ib:dk?'rgba(255,255,255,0.05)':'#f8fafc',pr:'#6366f1',pl:'#818cf8',sc:'#10b981',dg:'#ef4444',wn:'#f59e0b'};
-    useFocusEffect(useCallback(()=>{(async()=>{const uu=await AsyncStorage.getItem('currentUser');if(!uu){router.replace('/');return}const ud=JSON.parse(uu);su(ud);(async()=>{try{const r=await fetch(`${API_URL}/ping`);son((await r.json()).success)}catch(e){son(false)}})();(async(mat)=>{try{const r=await fetch(`${API_URL}/courses/${mat}`);const d=await r.json();if(d.success){const ns=d.allNotes||[];sst({c:d.courses.length,n:ns.filter(x=>x.type==='note').length,p:ns.filter(x=>x.type==='support').length,l:ns.filter(x=>x.type==='link').length})}}catch(e){}})();loadVaultStatus(ud.matricule)})()},[]));
-    const loadVaultStatus=async(mat)=>{try{const r=await fetch(`${API_URL}/vault/verify`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({matricule:mat,password:'test'})});const d=await r.json();svaultActive(d.message!=='Coffre-fort non configuré.')}catch(e){svaultActive(false)}};
-    const lo=async()=>{await AsyncStorage.removeItem('currentUser');router.replace('/')};
+    useFocusEffect(useCallback(()=>{(async()=>{const uu=await AsyncStorage.getItem('currentUser');if(!uu){router.replace('/');return}const ud=JSON.parse(uu);su(ud);son(true);loadStats(ud.matricule);loadVaultStatus(ud.matricule)})()},[]));
+    const loadStats=async(mat)=>{try{const r=await apiFetch(`${API_URL}/courses/${mat}`);const d=await r.json();if(d.success){const ns=d.allNotes||[];sst({c:d.courses.length,n:ns.filter(x=>x.type==='note').length,p:ns.filter(x=>x.type==='support').length,l:ns.filter(x=>x.type==='link').length})}}catch(e){}};
+    const loadVaultStatus=async(mat)=>{try{const r=await apiFetch(`${API_URL}/vault/verify`,{method:'POST',body:JSON.stringify({matricule:mat,password:'test'})});const d=await r.json();svaultActive(d.message!=='Coffre-fort non configuré.')}catch(e){svaultActive(false)}};
+    const lo=async()=>{await AsyncStorage.removeItem('currentUser');await AsyncStorage.removeItem('token');router.replace('/')};
     const oe=(t,v)=>{set(t);sev(v||'');sem(true)};
-    const se=async()=>{try{const r=await fetch(`${API_URL}/update-profile/${u.matricule}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({[et]:ev})});const d=await r.json();if(d.success){su(d.user);await AsyncStorage.setItem('currentUser',JSON.stringify(d.user))}else Alert.alert('Erreur',d.message)}catch(e){Alert.alert('Erreur','Impossible de modifier.')}sem(false)};
-    const pi=async()=>{const r=await ImagePicker.launchImageLibraryAsync({mediaTypes:['images'],allowsEditing:true,aspect:[1,1],quality:0.7});if(!r.canceled){try{const url=await uploadWithXHR(r.assets[0].uri,'profiles',`profile-${u.matricule}`);if(url){const rr=await fetch(`${API_URL}/update-profile/${u.matricule}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({photo:url})});const dd=await rr.json();if(dd.success){const up2={...u,photo:url};su(up2);await AsyncStorage.setItem('currentUser',JSON.stringify(up2))}else Alert.alert('Erreur',dd.message)}else Alert.alert('Erreur','Échec upload')}catch(e){Alert.alert('Erreur','Impossible upload: '+e.message)}}};
+    const se=async()=>{try{const r=await apiFetch(`${API_URL}/update-profile/${u.matricule}`,{method:'PUT',body:JSON.stringify({[et]:ev})});const d=await r.json();if(d.success){su(d.user);await AsyncStorage.setItem('currentUser',JSON.stringify(d.user))}else Alert.alert('Erreur',d.message)}catch(e){Alert.alert('Erreur','Impossible de modifier.')}sem(false)};
+    const pi=async()=>{const r=await ImagePicker.launchImageLibraryAsync({mediaTypes:['images'],allowsEditing:true,aspect:[1,1],quality:0.7});if(!r.canceled){try{const url=await uploadWithXHR(r.assets[0].uri,'profiles',`profile-${u.matricule}`);if(url){const rr=await apiFetch(`${API_URL}/update-profile/${u.matricule}`,{method:'PUT',body:JSON.stringify({photo:url})});const dd=await rr.json();if(dd.success){const up2={...u,photo:url};su(up2);await AsyncStorage.setItem('currentUser',JSON.stringify(up2))}else Alert.alert('Erreur',dd.message)}else Alert.alert('Erreur','Échec upload')}catch(e){Alert.alert('Erreur','Impossible upload: '+e.message)}}};
+    const openZoom=(url)=>{setZoomUrl(url);setZoomVisible(true)};
     const handleVaultAction=()=>{setVaultAction('disable');setShowVaultPass(true)};
-    const submitVaultPassword=async(pass:string)=>{setShowVaultPass(false);if(!pass.trim()){Alert.alert('Erreur','Mot de passe requis.');return}const r=await fetch(`${API_URL}/vault/verify`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({matricule:u.matricule,password:pass})});const d=await r.json();if(d.success){if(vaultAction==='disable'){setConfirmDisable(true)}}else{Alert.alert('Erreur',d.message)}};
-    const doDisableVault=async()=>{setConfirmDisable(false);const r=await fetch(`${API_URL}/vault/disable`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({matricule:u.matricule})});const d=await r.json();if(d.success){Alert.alert('✅','Coffre-fort désactivé.');svaultActive(false)}else Alert.alert('Erreur','Échec.')};
+    const submitVaultPassword=async(pass)=>{setShowVaultPass(false);if(!pass.trim()){Alert.alert('Erreur','Mot de passe requis.');return}const r=await apiFetch(`${API_URL}/vault/verify`,{method:'POST',body:JSON.stringify({matricule:u.matricule,password:pass})});const d=await r.json();if(d.success){if(vaultAction==='disable'){setConfirmDisable(true)}}else{Alert.alert('Erreur',d.message)}};
+    const doDisableVault=async()=>{setConfirmDisable(false);const r=await apiFetch(`${API_URL}/vault/disable`,{method:'POST',body:JSON.stringify({matricule:u.matricule})});const d=await r.json();if(d.success){Alert.alert('Coffre-fort désactivé.');svaultActive(false)}else Alert.alert('Erreur','Échec.')};
     const handleCreateVault=()=>{setShowCreateVault(true)};
-    const submitCreateVault=async(pass:string)=>{setShowCreateVault(false);if(!pass||pass.length<4){Alert.alert('Erreur','Minimum 4 caractères.');return}const r=await fetch(`${API_URL}/vault/setup`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({matricule:u.matricule,password:pass})});const d=await r.json();if(d.success){Alert.alert('✅','Coffre-fort activé !');svaultActive(true)}else Alert.alert('Erreur',d.message)};
+    const submitCreateVault=async(pass)=>{setShowCreateVault(false);if(!pass||pass.length<4){Alert.alert('Erreur','Minimum 4 caractères.');return}const r=await apiFetch(`${API_URL}/vault/setup`,{method:'POST',body:JSON.stringify({matricule:u.matricule,password:pass})});const d=await r.json();if(d.success){Alert.alert('Coffre-fort activé !');svaultActive(true)}else Alert.alert('Erreur',d.message)};
     if(!u)return<View style={[ss.ct,{backgroundColor:cl.bg}]}><Text style={{color:cl.tx,textAlign:'center',marginTop:100}}>Chargement...</Text></View>;
     return(
         <View style={[ss.ct,{backgroundColor:cl.bg}]}>
-            <ModalPrompt visible={showVaultPass} title="🔒 Mot de passe coffre-fort" message="Entrez le mot de passe" placeholder="Mot de passe" secureTextEntry onCancel={()=>setShowVaultPass(false)} onConfirm={submitVaultPassword} />
-            <ModalPrompt visible={showCreateVault} title="🔒 Créer un coffre-fort" message="Choisissez un mot de passe (min 4 car.)" placeholder="Mot de passe" secureTextEntry onCancel={()=>setShowCreateVault(false)} onConfirm={submitCreateVault} />
+            <ModalPrompt visible={showVaultPass} title="Mot de passe coffre-fort" message="Entrez le mot de passe" placeholder="Mot de passe" secureTextEntry onCancel={()=>setShowVaultPass(false)} onConfirm={submitVaultPassword} />
+            <ModalPrompt visible={showCreateVault} title="Créer un coffre-fort" message="Choisissez un mot de passe (min 4 car.)" placeholder="Mot de passe" secureTextEntry onCancel={()=>setShowCreateVault(false)} onConfirm={submitCreateVault} />
             <ModalConfirm visible={confirmDisable} title="Désactiver le coffre-fort ?" message="Tous les éléments masqués seront démasqués." onCancel={()=>setConfirmDisable(false)} onConfirm={doDisableVault} confirmText="Désactiver" confirmColor={cl.dg} />
+            <Modal visible={zoomVisible} transparent animationType="fade" onRequestClose={()=>setZoomVisible(false)}>
+                <TouchableOpacity style={ss.zoomOverlay} activeOpacity={1} onPress={()=>setZoomVisible(false)}>
+                    <Image source={{uri:zoomUrl}} style={ss.zoomImage} resizeMode="contain"/>
+                    <TouchableOpacity style={ss.zoomClose} onPress={()=>setZoomVisible(false)}><FontAwesome5 name="times" size={20} color="#fff"/></TouchableOpacity>
+                </TouchableOpacity>
+            </Modal>
             <View style={[ss.hd,{backgroundColor:cl.cd,borderBottomColor:cl.bd}]}><TouchableOpacity onPress={()=>router.back()} style={ss.hb}><FontAwesome5 name="arrow-left" size={18} color={cl.pr}/></TouchableOpacity><Text style={[ss.ht,{color:cl.tx}]}>Paramètres</Text><View style={ss.hb}/></View>
             <ScrollView contentContainerStyle={ss.cn} showsVerticalScrollIndicator={false}>
                 <View style={[ss.sc,{backgroundColor:cl.cd,borderColor:cl.bd}]}>
-                    <TouchableOpacity onPress={pi} style={ss.ac}>{u.photo?<Image source={{uri:u.photo}} style={ss.av} contentFit="cover" transition={200} cachePolicy="memory-disk"/>:<View style={ss.ap}><FontAwesome5 name="user" size={60} color="#fff"/></View>}<View style={ss.ab}><FontAwesome5 name="camera" size={14} color="#fff"/></View></TouchableOpacity>
+                    <View style={ss.ac}>
+                        <TouchableOpacity onPress={()=>u.photo?openZoom(u.photo):null}>{u.photo?<Image source={{uri:u.photo}} style={ss.av} contentFit="cover" transition={200} cachePolicy="memory-disk"/>:<View style={ss.ap}><FontAwesome5 name="user" size={60} color="#fff"/></View>}</TouchableOpacity>
+                        <TouchableOpacity style={ss.ab} onPress={pi}><FontAwesome5 name="camera" size={14} color="#fff"/></TouchableOpacity>
+                    </View>
                     <Text style={[ss.un,{color:cl.tx}]}>{u.nom||'---'}</Text><Text style={[ss.um,{color:cl.ts}]}>{u.matricule}</Text>
                     <View style={ss.ig}>
                         <TouchableOpacity style={[ss.ii,{backgroundColor:cl.ca,borderColor:cl.bd}]} onPress={()=>oe('nom',u.nom)}><FontAwesome5 name="user" size={14} color={cl.pl}/><Text style={[ss.iv,{color:cl.tx}]} numberOfLines={1}>{u.nom||'---'}</Text><FontAwesome5 name="pen" size={10} color={cl.ts}/></TouchableOpacity>
                         <View style={[ss.ii,{backgroundColor:cl.ca,borderColor:cl.bd}]}><FontAwesome5 name="id-card" size={14} color={cl.pl}/><Text style={[ss.iv,{color:cl.tx}]}>{u.matricule}</Text></View>
                         <TouchableOpacity style={[ss.ii,{backgroundColor:cl.ca,borderColor:cl.bd}]} onPress={()=>oe('email',u.email)}><FontAwesome5 name="envelope" size={14} color={cl.pl}/><Text style={[ss.iv,{color:cl.tx}]} numberOfLines={1}>{u.email||'Non renseigné'}</Text><FontAwesome5 name="pen" size={10} color={cl.ts}/></TouchableOpacity>
-                        <View style={[ss.ii,{backgroundColor:cl.ca,borderColor:cl.bd}]}><FontAwesome5 name="palette" size={14} color={cl.pl}/><Text style={[ss.iv,{color:cl.tx}]}>{dk?'🌙 Sombre':'☀️ Clair'}</Text></View>
+                        <View style={[ss.ii,{backgroundColor:cl.ca,borderColor:cl.bd}]}><FontAwesome5 name="palette" size={14} color={cl.pl}/><Text style={[ss.iv,{color:cl.tx}]}>{dk?'Sombre':'Clair'}</Text></View>
                     </View>
                     <Text style={[ss.stl,{color:cl.pl}]}><FontAwesome5 name="chart-bar" size={14} color={cl.pl}/> Statistiques</Text>
-                    <View style={ss.sg}>
-                        <Sbx i="book" v={st.c} l="Cours" c={cl}/><Sbx i="sticky-note" v={st.n} l="Notes" c={cl}/><Sbx i="file-pdf" v={st.p} l="PDFs" c={cl}/><Sbx i="link" v={st.l} l="Liens" c={cl}/>
-                    </View>
+                    <View style={ss.sg}><Sbx i="book" v={st.c} l="Cours" c={cl}/><Sbx i="sticky-note" v={st.n} l="Notes" c={cl}/><Sbx i="file-pdf" v={st.p} l="PDFs" c={cl}/><Sbx i="link" v={st.l} l="Liens" c={cl}/></View>
                     <Text style={[ss.stl,{color:cl.pl,marginTop:8}]}><FontAwesome5 name="lock" size={14} color={cl.pl}/> Coffre-fort</Text>
                     {vaultActive?(
                         <View>
-                            <View style={[ss.ii,{backgroundColor:'rgba(16,185,129,0.1)',borderColor:'rgba(16,185,129,0.3)',marginBottom:8}]}><FontAwesome5 name="shield-alt" size={14} color={cl.sc}/><Text style={[ss.iv,{color:cl.sc}]}>🟢 Coffre-fort actif</Text></View>
+                            <View style={[ss.ii,{backgroundColor:'rgba(16,185,129,0.1)',borderColor:'rgba(16,185,129,0.3)',marginBottom:8}]}><FontAwesome5 name="shield-alt" size={14} color={cl.sc}/><Text style={[ss.iv,{color:cl.sc}]}>Coffre-fort actif</Text></View>
                             <View style={{flexDirection:'row',gap:8}}>
                                 <TouchableOpacity style={[ss.vaultBtn,{backgroundColor:cl.pr}]} onPress={()=>router.push('/vault')}><FontAwesome5 name="door-open" size={12} color="#fff"/><Text style={{color:'#fff',fontWeight:'600',fontSize:12,marginLeft:6}}>Accéder</Text></TouchableOpacity>
                                 <TouchableOpacity style={[ss.vaultBtn,{backgroundColor:cl.dg}]} onPress={handleVaultAction}><FontAwesome5 name="unlock" size={12} color="#fff"/><Text style={{color:'#fff',fontWeight:'600',fontSize:12,marginLeft:6}}>Désactiver</Text></TouchableOpacity>
                             </View>
                         </View>
                     ):(
-                        <TouchableOpacity style={[ss.ii,{backgroundColor:cl.ca,borderColor:cl.bd}]} onPress={handleCreateVault}><FontAwesome5 name="lock" size={14} color={cl.pl}/><Text style={[ss.iv,{color:cl.tx}]}>🔒 Créer un coffre-fort</Text></TouchableOpacity>
+                        <TouchableOpacity style={[ss.ii,{backgroundColor:cl.ca,borderColor:cl.bd}]} onPress={handleCreateVault}><FontAwesome5 name="lock" size={14} color={cl.pl}/><Text style={[ss.iv,{color:cl.tx}]}>Créer un coffre-fort</Text></TouchableOpacity>
                     )}
                     <View style={[ss.cb,{backgroundColor:on?'rgba(16,185,129,0.1)':'rgba(239,68,68,0.1)',borderColor:on?'rgba(16,185,129,0.3)':'rgba(239,68,68,0.3)',marginTop:12}]}><FontAwesome5 name="wifi" size={14} color={on?cl.sc:cl.dg}/><Text style={{color:on?cl.sc:cl.dg,fontSize:13,fontWeight:'500',flex:1,marginLeft:10}}>{on?'Connecté à Internet':'Pas de connexion'}</Text><View style={[ss.sd,{backgroundColor:on?cl.sc:cl.dg}]}/></View>
                 </View>
@@ -116,4 +126,5 @@ const ss=StyleSheet.create({
     lb:{flexDirection:'row',backgroundColor:'rgba(239,68,68,0.1)',borderRadius:50,padding:16,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'rgba(239,68,68,0.2)'},lt:{color:'#f87171',fontSize:15,fontWeight:'600'},
     mo:{flex:1,backgroundColor:'rgba(0,0,0,0.6)',justifyContent:'center',alignItems:'center',padding:20},mc:{width:'100%',borderRadius:20,padding:24,borderWidth:1},mt:{fontSize:17,fontWeight:'700',marginBottom:16,textAlign:'center'},
     mi:{borderWidth:2,borderRadius:12,padding:14,fontSize:15,marginBottom:16},ma:{flexDirection:'row',gap:10},mb:{flex:1,padding:14,borderRadius:12,alignItems:'center'},
+    zoomOverlay:{flex:1,backgroundColor:'rgba(0,0,0,0.95)',justifyContent:'center',alignItems:'center'},zoomImage:{width:'90%',height:'70%'},zoomClose:{position:'absolute',top:50,right:20,width:40,height:40,borderRadius:20,backgroundColor:'rgba(255,255,255,0.2)',justifyContent:'center',alignItems:'center'},
 });
