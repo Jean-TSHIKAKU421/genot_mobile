@@ -10,7 +10,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { WebView } from 'react-native-webview';
-import { Audio } from 'expo-av';
+import { useAudioPlayer } from 'expo-audio';
 import ModalConfirm from '../components/ModalConfirm';
 
 const API_URL='https://jtt.alwaysdata.net/api', CL_URL='https://api.cloudinary.com/v1_1/dfosclwrp/auto/upload', CL_UP='genotApp';
@@ -57,7 +57,7 @@ export default function CourseScreen(){
     const [pdfUrl,spdfUrl]=useState(null), [pdfVisible,spdfVisible]=useState(false);
     const [audioUrl,setAudioUrl]=useState(null), [audioVisible,setAudioVisible]=useState(false), [audioTitle,setAudioTitle]=useState('');
     const [audioMini,setAudioMini]=useState(false); const [audioPos,setAudioPos]=useState({x:16,y:120}); const [dragging,setDragging]=useState(false); const dragOffset=useRef({x:0,y:0});
-    const [audioSound,setAudioSound]=useState(null); const [audioProgress,setAudioProgress]=useState(0);
+    const [audioProgress,setAudioProgress]=useState(0);
     const [audioMode,setAudioMode]=useState(null), [recordVisible,setRecordVisible]=useState(false), [isRec,setIsRec]=useState(false), [isPlaying,setIsPlaying]=useState(false);
     const [dlProgress,sdlProgress]=useState(0), [dlVisible,sdlVisible]=useState(false), [dlMsg,sdlMsg]=useState('');
     const [vaultActive,svaultActive]=useState(false);
@@ -65,9 +65,19 @@ export default function CourseScreen(){
     const [readNote,setReadNote]=useState({visible:false,title:'',content:''});
     const recWebView=useRef(null);
     
+    const player = useAudioPlayer({ uri: audioUrl || '' });
+    
+    useEffect(() => {
+        const sub = player.addListener('playbackStatusUpdate', (status) => {
+            if (status.didJustFinish) { setIsPlaying(false); setAudioProgress(1); }
+            if (status.isLoaded && status.duration > 0) setAudioProgress(status.currentTime / status.duration);
+        });
+        return () => sub.remove();
+    }, [player]);
+    
     const dk=th==='dark', cl={bg:dk?'#020617':'#f0f2f5', cd:dk?'#0f172a':'#ffffff', tx:dk?'#f1f5f9':'#1a1a2e', ts:dk?'#94a3b8':'#64748b', bd:dk?'rgba(99,102,241,0.2)':'#e2e8f0', ib:dk?'rgba(255,255,255,0.05)':'#f8fafc', pr:'#6366f1', dg:'#ef4444', sc:'#10b981', wn:'#f59e0b', cy:'#06b6d4'};
     
-    useFocusEffect(useCallback(()=>{ld();return ()=>{if(audioSound){audioSound.unloadAsync().catch(()=>{})}}},[id]));
+    useFocusEffect(useCallback(()=>{ld()},[id]));
     
     const ld=async()=>{
         try{
@@ -84,31 +94,14 @@ export default function CourseScreen(){
     
     const openPdf=(url)=>{if(!url)return;spdfUrl(`https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(url)}`);spdfVisible(true)};
     
-    const playAudio=async(item)=>{
+    const playAudio=(item)=>{
         if(!item.file_url)return;
-        if(audioSound){await audioSound.unloadAsync();setAudioSound(null)}
         setAudioTitle(item.title||'Audio');setAudioUrl(item.file_url);setAudioVisible(true);setIsPlaying(true);setAudioMini(false);setAudioPos({x:16,y:120});setAudioProgress(0);
-        try{
-            const {sound}=await Audio.Sound.createAsync({uri:item.file_url},{shouldPlay:true,progressUpdateIntervalMillis:200});
-            setAudioSound(sound);
-            sound.setOnPlaybackStatusUpdate((status)=>{
-                if(status.isLoaded){
-                    setAudioProgress(status.positionMillis/status.durationMillis);
-                    if(status.didJustFinish){setIsPlaying(false);setAudioProgress(1)}
-                }
-            });
-        }catch(e){Alert.alert('Erreur','Impossible de lire cet audio.')}
+        player.replace({uri:item.file_url});player.play();
     };
-    
-    const togglePlayPause=async()=>{
-        if(!audioSound)return;
-        const status=await audioSound.getStatusAsync();
-        if(status.isPlaying){await audioSound.pauseAsync();setIsPlaying(false)}else{await audioSound.playAsync();setIsPlaying(true)}
-    };
-    
-    const seekAudio=async(percent)=>{if(audioSound){const status=await audioSound.getStatusAsync();const pos=status.durationMillis*percent;await audioSound.setPositionAsync(pos);setAudioProgress(percent)}};
-    
-    const stopAudio=()=>{if(audioSound){audioSound.unloadAsync();setAudioSound(null)}setAudioVisible(false);setAudioUrl(null);setIsPlaying(false);setAudioMini(false)};
+    const togglePlayPause=()=>{if(player.playing){player.pause();setIsPlaying(false)}else{player.play();setIsPlaying(true)}};
+    const seekAudio=(p)=>{if(player.duration)player.seekTo(player.duration*p)};
+    const stopAudio=()=>{player.stop();setAudioVisible(false);setAudioUrl(null);setIsPlaying(false);setAudioMini(false)};
     
     const downloadFile=async(url,filename)=>{
         sdlVisible(true);sdlProgress(0);sdlMsg('Téléchargement...');
