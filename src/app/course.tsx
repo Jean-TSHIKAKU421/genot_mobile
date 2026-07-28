@@ -45,6 +45,8 @@ const AudioBars=({color,playing})=>{
     return(<View style={{flexDirection:'row',alignItems:'flex-end',gap:5,height:50}}>{bars.map((h,i)=>(<Animated.View key={i} style={{width:4,backgroundColor:color,borderRadius:2,height:animValues[i].interpolate({inputRange:[0,1],outputRange:[4,h*40]})}}/>))}</View>)
 };
 
+const SPEEDS=[0.5,1,1.5,2];
+
 export default function CourseScreen(){
     const {id}=useLocalSearchParams();
     const [co,sco]=useState(null), [nt,snt]=useState([]), [ct,sct]=useState('supports'), [st2,sst2]=useState('');
@@ -57,7 +59,7 @@ export default function CourseScreen(){
     const [pdfUrl,spdfUrl]=useState(null), [pdfVisible,spdfVisible]=useState(false);
     const [audioUrl,setAudioUrl]=useState(null), [audioVisible,setAudioVisible]=useState(false), [audioTitle,setAudioTitle]=useState('');
     const [audioMini,setAudioMini]=useState(false); const [audioPos,setAudioPos]=useState({x:16,y:120}); const [dragging,setDragging]=useState(false); const dragOffset=useRef({x:0,y:0});
-    const [audioProgress,setAudioProgress]=useState(0);
+    const [audioProgress,setAudioProgress]=useState(0); const [audioSpeed,setAudioSpeed]=useState(1); const [audioDuration,setAudioDuration]=useState(0); const [audioPosition,setAudioPosition]=useState(0);
     const [audioMode,setAudioMode]=useState(null), [recordVisible,setRecordVisible]=useState(false), [isRec,setIsRec]=useState(false), [isPlaying,setIsPlaying]=useState(false);
     const [dlProgress,sdlProgress]=useState(0), [dlVisible,sdlVisible]=useState(false), [dlMsg,sdlMsg]=useState('');
     const [vaultActive,svaultActive]=useState(false);
@@ -70,7 +72,11 @@ export default function CourseScreen(){
     useEffect(() => {
         const sub = player.addListener('playbackStatusUpdate', (status) => {
             if (status.didJustFinish) { setIsPlaying(false); setAudioProgress(1); }
-            if (status.isLoaded && status.duration > 0) setAudioProgress(status.currentTime / status.duration);
+            if (status.isLoaded && status.duration > 0) {
+                setAudioDuration(status.duration);
+                setAudioPosition(status.currentTime);
+                setAudioProgress(status.currentTime / status.duration);
+            }
         });
         return () => sub.remove();
     }, [player]);
@@ -96,12 +102,15 @@ export default function CourseScreen(){
     
     const playAudio=(item)=>{
         if(!item.file_url)return;
-        setAudioTitle(item.title||'Audio');setAudioUrl(item.file_url);setAudioVisible(true);setIsPlaying(true);setAudioMini(false);setAudioPos({x:16,y:120});setAudioProgress(0);
+        setAudioTitle(item.title||'Audio');setAudioUrl(item.file_url);setAudioVisible(true);setIsPlaying(true);setAudioMini(false);setAudioPos({x:16,y:120});setAudioProgress(0);setAudioSpeed(1);
         player.replace({uri:item.file_url});player.play();
     };
     const togglePlayPause=()=>{if(player.playing){player.pause();setIsPlaying(false)}else{player.play();setIsPlaying(true)}};
-    const seekAudio=(p)=>{if(player.duration)player.seekTo(player.duration*p)};
-    const stopAudio=()=>{player.stop();setAudioVisible(false);setAudioUrl(null);setIsPlaying(false);setAudioMini(false)};
+    const seekAudio=(p)=>{if(audioDuration>0)player.seekTo(audioDuration*p)};
+    const skipBack=()=>{if(audioDuration>0)player.seekTo(Math.max(0,audioPosition-10))};
+    const skipForward=()=>{if(audioDuration>0)player.seekTo(Math.min(audioDuration,audioPosition+10))};
+    const changeSpeed=async()=>{const i=SPEEDS.indexOf(audioSpeed);const ns=SPEEDS[(i+1)%SPEEDS.length];try{await player.setPlaybackRate(ns);setAudioSpeed(ns)}catch(e){}};
+    const stopAudio=()=>{player.pause();setAudioVisible(false);setAudioUrl(null);setIsPlaying(false);setAudioMini(false)};
     
     const downloadFile=async(url,filename)=>{
         sdlVisible(true);sdlProgress(0);sdlMsg('Téléchargement...');
@@ -164,18 +173,21 @@ export default function CourseScreen(){
                     <TouchableOpacity onPress={()=>setAudioMini(!audioMini)}><FontAwesome5 name={audioMini?'expand':'minus'} size={12} color="#fff"/></TouchableOpacity>
                 </View>
                 {!audioMini&&(
-                    <View style={{padding:10,alignItems:'center',gap:8}}>
+                    <View style={{padding:10,alignItems:'center',gap:6}}>
                         <AudioBars color="#a855f7" playing={isPlaying}/>
-                        <View style={{flexDirection:'row',alignItems:'center',gap:10,width:'100%'}}>
+                        <View style={{flexDirection:'row',alignItems:'center',gap:8,width:'100%'}}>
+                            <TouchableOpacity onPress={changeSpeed} style={{backgroundColor:'rgba(168,85,247,0.15)',borderRadius:8,paddingHorizontal:8,paddingVertical:3}}><Text style={{color:'#a855f7',fontSize:11,fontWeight:'700'}}>x{audioSpeed}</Text></TouchableOpacity>
+                            <TouchableOpacity onPress={skipBack}><FontAwesome5 name="backward" size={14} color="#a855f7"/></TouchableOpacity>
                             <TouchableOpacity onPress={togglePlayPause}><FontAwesome5 name={isPlaying?'pause-circle':'play-circle'} size={32} color="#a855f7"/></TouchableOpacity>
-                            <TouchableOpacity style={{flex:1}} onPress={(e)=>{const x=e.nativeEvent.locationX;const w=e.nativeEvent.target;seekAudio(x/w)}}>
-                                <View style={{height:6,backgroundColor:'rgba(168,85,247,0.2)',borderRadius:3,overflow:'hidden'}}>
-                                    <View style={{width:`${audioProgress*100}%`,height:'100%',backgroundColor:'#a855f7',borderRadius:3}}/>
-                                </View>
-                            </TouchableOpacity>
-                            <Text style={{color:'#a855f7',fontSize:10,fontWeight:'700',width:36,textAlign:'right'}}>{Math.floor(audioProgress*100)}%</Text>
-                            <TouchableOpacity onPress={()=>downloadFile(audioUrl,audioTitle+'.mp3')}><FontAwesome5 name="download" size={18} color="#a855f7"/></TouchableOpacity>
+                            <TouchableOpacity onPress={skipForward}><FontAwesome5 name="forward" size={14} color="#a855f7"/></TouchableOpacity>
+                            <TouchableOpacity onPress={()=>downloadFile(audioUrl,audioTitle+'.mp3')}><FontAwesome5 name="download" size={16} color="#a855f7"/></TouchableOpacity>
                         </View>
+                        <TouchableOpacity style={{width:'100%'}} onPress={(e)=>{const x=e.nativeEvent.locationX;const w=e.nativeEvent.target;seekAudio(x/w)}}>
+                            <View style={{height:4,backgroundColor:'rgba(168,85,247,0.2)',borderRadius:2,overflow:'hidden'}}>
+                                <View style={{width:`${audioProgress*100}%`,height:'100%',backgroundColor:'#a855f7',borderRadius:2}}/>
+                            </View>
+                        </TouchableOpacity>
+                        <Text style={{color:'#a855f7',fontSize:9,fontWeight:'700',alignSelf:'flex-end'}}>{Math.floor(audioProgress*100)}%</Text>
                     </View>
                 )}
             </View>
@@ -243,7 +255,7 @@ const ss=StyleSheet.create({
     ibn:{padding:8,width:38,height:38,borderRadius:10,justifyContent:'center',alignItems:'center',backgroundColor:'rgba(255,255,255,0.05)',borderWidth:1,borderColor:'rgba(255,255,255,0.1)'},
     em2:{alignItems:'center',padding:50,borderRadius:16,borderWidth:1},
     pdfContainer:{flex:1}, pdfHeader:{flexDirection:'row',alignItems:'center',padding:14,paddingTop:48,borderBottomWidth:1,gap:12},
-    audioFloating:{position:'absolute',zIndex:9999,width:280,backgroundColor:'#0f172a',borderRadius:14,borderWidth:1,borderColor:'rgba(168,85,247,0.35)',overflow:'hidden',shadowColor:'#000',shadowOffset:{width:0,height:8},shadowOpacity:0.5,shadowRadius:20,elevation:12},
+    audioFloating:{position:'absolute',zIndex:9999,width:290,backgroundColor:'#0f172a',borderRadius:14,borderWidth:1,borderColor:'rgba(168,85,247,0.35)',overflow:'hidden'},
     audioFloatingMini:{width:190},
     audioFloatHeader:{flexDirection:'row',alignItems:'center',padding:10,gap:8,backgroundColor:'rgba(168,85,247,0.15)'},
     audioModal:{flex:1}, audioHeader:{flexDirection:'row',alignItems:'center',padding:14,paddingTop:48,borderBottomWidth:1,gap:12},
