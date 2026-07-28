@@ -14,4 +14,4 @@ clear
 echo "Démarrage de l'application sur Android..."
 sleep 1
 clear
-npx expo start --android
+npx expo start --go
