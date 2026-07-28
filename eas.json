@@ -15,16 +15,14 @@
     "preview": {
       "distribution": "internal",
       "android": {
-        "buildType": "apk",
-        "applicationId": "com.genot.app"
+        "buildType": "apk"
       },
       "channel": "preview"
     },
     "production": {
       "autoIncrement": true,
       "android": {
-        "buildType": "apk",
-        "applicationId": "com.genot.app"
+        "buildType": "apk"
       },
       "channel": "production"
     }
